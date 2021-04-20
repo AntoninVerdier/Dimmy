@@ -7,6 +7,8 @@ from tqdm import tqdm
 from scipy import signal
 import matplotlib.pyplot as plt
 
+from scipy.io import wavfile
+from sklearn.model_selection import train_test_split
 from keras.models import Sequential, Model
 from keras.layers import Input, Dense, InputLayer, Flatten, Reshape
 #import keras
@@ -24,6 +26,7 @@ def load_data(folder):
 		sounds['{}'.format(file[:-4])] = sample
 
 	return sounds, samplerate
+
 # Perform STFT
 # Actual shallow AE, LSTM-AE,
 
@@ -44,12 +47,6 @@ def get_mag_phases(sounds):
 	return np.array(magnitudes), np.array(phases)
 
 
-
-
-sounds, samplerate = load_data('/home/anverdie/Downloads/nsynth-test/audio/')
-
-mag, phases = get_mag_phases(sounds)
-
 def build_autoencoder(sound_shape, latent_dim):
 
 	encoder = Sequential()
@@ -68,6 +65,9 @@ def build_autoencoder(sound_shape, latent_dim):
 
 	return encoder, decoder
 
+sounds, samplerate = load_data('/home/anverdie/Downloads/nsynth-test/audio/')
+mag, phases = get_mag_phases(sounds)
+
 encoder, decoder = build_autoencoder(mag.shape[1:], 20)
 
 inp = Input(mag.shape[1:])
@@ -77,8 +77,6 @@ reconstruction = decoder(code)
 autoencoder = Model(inp, reconstruction)
 autoencoder.compile(optimizer='adam', loss='mse')
 
-print(autoencoder.summary())
-
 history = autoencoder.fit(mag, mag, epochs=1)
 decoded_mag = autoencoder.predict(mag)
 
@@ -86,8 +84,10 @@ Zxx = decoded_mag * np.exp(phases*1j)
 
 reconstructed_sounds = []
 for i, k in enumerate(Zxx):
-	sound = signal.istft(k, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
+	t, sound = signal.istft(k, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
 	reconstructed_sounds.append(sound)
+
+wavfile.write('thesound.wav', samplerate, reconstructed_sounds[10])
 
 
 # Aitoencoder get prediction (therefore mag values)
