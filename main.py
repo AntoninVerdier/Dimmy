@@ -30,15 +30,16 @@ def load_data(folder):
 
 
 
-sounds, samplerate = load_data('/home/pouple/PhD/Code/Dimmy/Data/nsynth-valid/audio/')
+sounds, samplerate = load_data('/home/anverdie/Downloads/nsynth-valid/audio/')
 
-ffts = []
+phases = []
+magnitudes = []
 for i, k in tqdm(enumerate(sounds)):
 	f, t, Zxx = signal.stft(sounds[k], fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
-	ffts.append(Zxx)
-ffts = np.array(ffts)
-print(ffts.shape)
-
+	mag = np.abs(Zxx)
+	p = np.angle(Zxx)
+	magnitudes.append(mag)
+	phases.append(p)
 
 latent_dim = 20
 inp_shape = ffts.shape[1:]
