@@ -54,4 +54,3 @@ model.add(Dense(513, activation='tanh'))
 model.compile(optimizer='adam')
 
 model.fit(ffts, ffts, batch_size=2, shuffle=True)
-           
