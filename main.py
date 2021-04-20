@@ -1,4 +1,5 @@
 import os
+import cmath
 import librosa
 import numpy as np
 from tqdm import tqdm
@@ -29,21 +30,26 @@ def load_data(folder):
 # Testing and extraction of latent dimension
 
 
+def get_mag_phases(sounds):
+	""" Could be better to use map function and apply the function along the list
+	"""
+	magnitudes, phases = [], []
+	for i, k in enumerate(sounds):
+		f, t, Zxx = signal.stft(sounds[k], fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
+		mag = np.abs(Zxx)
+		p = np.angle(Zxx)
+		magnitudes.append(mag)
+		phases.append(p)
 
-sounds, samplerate = load_data('/home/anverdie/Downloads/nsynth-valid/audio/')
+	return np.array(magnitudes), np.array(phases)
 
-phases = []
-magnitudes = []
-for i, k in tqdm(enumerate(sounds)):
-	f, t, Zxx = signal.stft(sounds[k], fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
-	mag = np.abs(Zxx)
-	p = np.angle(Zxx)
-	magnitudes.append(mag)
-	phases.append(p)
 
-latent_dim = 20
-inp_shape = ffts.shape[1:]
-print(inp_shape)
+
+
+sounds, samplerate = load_data('/home/anverdie/Downloads/nsynth-test/audio/')
+
+mag, phases = get_mag_phases(sounds)
+
 def build_autoencoder(sound_shape, latent_dim):
 
 	encoder = Sequential()
@@ -62,9 +68,9 @@ def build_autoencoder(sound_shape, latent_dim):
 
 	return encoder, decoder
 
-encoder, decoder = build_autoencoder(inp_shape, 20)
+encoder, decoder = build_autoencoder(mag.shape[1:], 20)
 
-inp = Input(inp_shape)
+inp = Input(mag.shape[1:])
 code = encoder(inp)
 reconstruction = decoder(code)
 
@@ -73,4 +79,18 @@ autoencoder.compile(optimizer='adam', loss='mse')
 
 print(autoencoder.summary())
 
-history = autoencoder.fit(ffts, ffts, epochs=30)
+history = autoencoder.fit(mag, mag, epochs=1)
+decoded_mag = autoencoder.predict(mag)
+
+Zxx = decoded_mag * np.exp(phases*1j)
+
+reconstructed_sounds = []
+for i, k in enumerate(Zxx):
+	sound = signal.istft(k, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
+	reconstructed_sounds.append(sound)
+
+
+# Aitoencoder get prediction (therefore mag values)
+# Smush them with phases 
+# do an ISTFT 
+# get sound vibin'
