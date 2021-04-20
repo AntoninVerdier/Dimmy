@@ -1,13 +1,13 @@
-import os 
+import os
 import librosa
-import numpy as np 
-from tqdm import tqdm 
+import numpy as np
+from tqdm import tqdm
 
-from scipy import signal 
+from scipy import signal
 import matplotlib.pyplot as plt
 
-from keras.models import Sequential
-from keras.layers import Input, Dense
+from keras.models import Sequential, Model
+from keras.layers import Input, Dense, InputLayer, Flatten, Reshape
 #import keras
 
 # Load nsynth audio data randomly
@@ -24,33 +24,52 @@ def load_data(folder):
 
 	return sounds, samplerate
 # Perform STFT
-# Actual shallow AE, LSTM-AE, 
+# Actual shallow AE, LSTM-AE,
 
-# Testing and extraction of latent dimension 
+# Testing and extraction of latent dimension
 
 
 
-sounds, samplerate = load_data('/home/anverdie/Downloads/nsynth-test/audio/')
+sounds, samplerate = load_data('/home/pouple/PhD/Code/Dimmy/Data/nsynth-valid/audio/')
+
 ffts = []
 for i, k in tqdm(enumerate(sounds)):
 	f, t, Zxx = signal.stft(sounds[k], fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
 	ffts.append(Zxx)
+ffts = np.array(ffts)
+print(ffts.shape)
 
 
-	# Need to convert to log scale and normalize by frequency
 latent_dim = 20
+inp_shape = ffts.shape[1:]
+print(inp_shape)
+def build_autoencoder(sound_shape, latent_dim):
 
-model = Sequential()
+	encoder = Sequential()
+	encoder.add(InputLayer(sound_shape))
+	encoder.add(Flatten())
+	encoder.add(Dense(513, activation='tanh'))
+	encoder.add(Dense(256, activation='tanh'))
+	encoder.add(Dense(latent_dim))
 
-model.add(Input(shape=513))
-model.add(Dense(513, activation='tanh'))
-model.add(Dense(256, activation='tanh'))
+	decoder = Sequential()
+	decoder.add(InputLayer((latent_dim,)))
+	decoder.add(Dense(256, activation='tanh'))
+	decoder.add(Dense(513, activation='tanh'))
+	decoder.add(Dense(np.prod(sound_shape)))
+	decoder.add(Reshape(sound_shape))
 
-model.add(Dense(latent_dim))
+	return encoder, decoder
 
-model.add(Dense(256, activation='tanh'))
-model.add(Dense(513, activation='tanh'))
+encoder, decoder = build_autoencoder(inp_shape, 20)
 
-model.compile(optimizer='adam')
+inp = Input(inp_shape)
+code = encoder(inp)
+reconstruction = decoder(code)
 
-model.fit(ffts, ffts, batch_size=2, shuffle=True)
+autoencoder = Model(inp, reconstruction)
+autoencoder.compile(optimizer='adam', loss='mse')
+
+print(autoencoder.summary())
+
+history = autoencoder.fit(ffts, ffts, epochs=30)
