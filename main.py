@@ -14,6 +14,10 @@ from keras.models import Sequential, Model
 from keras.layers import Input, Dense, InputLayer, Flatten, Reshape
 #import keras
 
+
+# Could be a good idea to store compute this as a generator because of the ram it needs. 
+# Thhis way dataset will not be stored each time
+
 # Load nsynth audio data randomly
 def load_data(folder):
 	files = os.listdir(folder)
@@ -98,8 +102,3 @@ for i, k in enumerate(Zxx):
 	t, sound = signal.istft(k, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
 	wavfile.write('Sounds/Sound_{}'.format(i), samplerate, sound)
 
-
-# Aitoencoder get prediction (therefore mag values)
-# Smush them with phases
-# do an ISTFT
-# get sound vibin'
