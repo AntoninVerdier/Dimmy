@@ -85,7 +85,7 @@ history = autoencoder.fit(training_generator,
 		                  workers=12)
 
 autoencoder.save('Autoencoder_model')
-pkl.dump(open('model_history.pkl', 'w'), history)
+pkl.dump(history, open('model_history.pkl', 'wb'))
 
 # autoencoder = keras.models.load_model('Autoencoder_model')
 
