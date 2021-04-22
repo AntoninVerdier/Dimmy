@@ -80,9 +80,7 @@ autoencoder.compile(optimizer='adam', loss='mse')
 
 history = autoencoder.fit(training_generator, 
 						  validation_data=validation_generator, 
-						  epochs=1, 
-		                  use_multiprocessing=True,
-		                  workers=12)
+						  epochs=1)
 
 autoencoder.save('Autoencoder_model')
 pkl.dump(history, open('model_history.pkl', 'wb'))
