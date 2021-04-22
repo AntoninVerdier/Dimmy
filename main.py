@@ -13,24 +13,26 @@ from scipy.io import wavfile
 from sklearn.model_selection import train_test_split
 from keras.models import Sequential, Model
 from keras.layers import Input, Dense, InputLayer, Flatten, Reshape
+
+from data_gen import DataGenerator
 #import keras
 
 # Load nsynth audio data randomly
 def load_data(folder, cap=None):
-	magnitudes, phases = [], []
 	files = os.listdir(folder)
 	if cap:
 		files = np.random.choice(files, cap)
 
-	for i, file in tqdm(enumerate(files), total=len(files)):
-		sample, samplerate = librosa.load(os.path.join(folder, file), sr=None)
+	for j, fs in enumerate(np.array_split(np.array(files), 10)):
+		specs = []
+		for i, file in enumerate(tqdm(fs)):
+			sample, samplerate = librosa.load(os.path.join(folder, file), sr=None)
 
-		f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
+			f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
 
-		magnitudes.append(np.abs(Zxx))
-		phases.append(np.angle(Zxx))
-
-	return np.array(magnitudes), np.array(phases), samplerate
+			specs.append(Zxx)
+		
+		pkl.dump([specs, fs, samplerate], open('ata_{}.pkl'.format(j), 'wb'), )
 
 
 def build_autoencoder(sound_shape, latent_dim):
@@ -51,37 +53,57 @@ def build_autoencoder(sound_shape, latent_dim):
 
 	return encoder, decoder
 
-mag, phases, samplerate = load_data('/home/pouple/PhD/Code/Dimmy/Data/nsynth-train/audio', cap=30000)
+# specs, files, samplerate = load_data('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-train/audio')
 
-encoder, decoder = build_autoencoder(mag.shape[1:], 40)
+partition = {}
+params = {'dim': (513,126),
+          'batch_size': 1024,
+          'shuffle': True}
 
-inp = Input(mag.shape[1:])
+partition['train'] = os.listdir('/home/user/Documents/Antonin/Code/Dimmy/Data/mags')
+partition['validation'] = os.listdir('/home/user/Documents/Antonin/Code/Dimmy/Data/mags')
+
+training_generator = DataGenerator(partition['train'], **params)
+validation_generator = DataGenerator(partition['validation'], **params)
+
+# for i in training_generator:
+# 	pass
+
+encoder, decoder = build_autoencoder((513, 126), 25)
+
+inp = Input((513, 126))
 code = encoder(inp)
 reconstruction = decoder(code)
 
 autoencoder = Model(inp, reconstruction)
 autoencoder.compile(optimizer='adam', loss='mse')
 
+history = autoencoder.fit(training_generator, 
+						  validation_data=validation_generator, 
+						  epochs=1, 
+		                  use_multiprocessing=True,
+		                  workers=12)
 
-history = autoencoder.fit(mag, mag, epochs=100)
 autoencoder.save('Autoencoder_model')
+pkl.dump(open('model_history.pkl', 'w'), history)
 
-pickle.dump(open('model_history.pkl', 'w'), history)
+# autoencoder = keras.models.load_model('Autoencoder_model')
 
-autoencoder = keras.models.load_model('Autoencoder_model')
+# mag_t, phases_t, samplerate = load_data('home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-valid/audio')
+# decoded_mag = autoencoder.predict(mag_t)
 
-mag_t, phases_t, samplerate = load_data('/home/pouple/PhD/Code/Dimmy/Data/nsynth-valid/audio')
-decoded_mag = autoencoder.predict(mag_t)
+# Zxx = decoded_mag * np.exp(phases_t*1j)
 
-Zxx = decoded_mag * np.exp(phases_t*1j)
-
-reconstructed_sounds = []
-for i, k in enumerate(Zxx):
-	t, sound = signal.istft(k, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
-	wavfile.write('Sounds/Sound_{}'.format(i), samplerate, sound)
+# reconstructed_sounds = []
+# for i, k in enumerate(Zxx):
+# 	t, sound = signal.istft(k, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
+# 	wavfile.write('Sounds/Sound_{}'.format(i), samplerate, sound)
 
 
 # Aitoencoder get prediction (therefore mag values)
 # Smush them with phases
 # do an ISTFT
 # get sound vibin'
+
+#################### TESTING
+
