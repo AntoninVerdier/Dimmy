@@ -1,8 +1,8 @@
 import os
 import librosa
-import numpy as np 
+import numpy as np
 
-from tqdm import tqdm 
+from tqdm import tqdm
 
 from scipy import signal
 
@@ -24,4 +24,4 @@ def load_data(folder, cap=None):
 		np.save(open('Data/mags/{}.npy'.format(file), 'wb'), mag)
 		np.save(open('Data/phases/{}.npy'.format(file), 'wb'), phase)
 
-load_data('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-train/audio')
+load_data('/home/pouple/PhD/Code/Dimmy/Data/nsynth-test/audio')

@@ -3,13 +3,15 @@ import numpy as np
 
 class DataGenerator(keras.utils.Sequence):
     'Generates data for Keras'
-    def __init__(self, list_IDs, batch_size=256, dim=(64000,), shuffle=True, path=None):
+    def __init__(self, list_IDs, batch_size=256, dim=(64000,), shuffle=True, path=None, test=False, phase=False):
         'Initialization'
         self.dim = dim
         self.batch_size = batch_size
         self.list_IDs = list_IDs
         self.shuffle = shuffle
         self.path = path
+        self.test = test
+        self.phase = phase
         self.on_epoch_end()
 
     def __len__(self):
@@ -42,7 +44,13 @@ class DataGenerator(keras.utils.Sequence):
 
         # Generate data
         for i, ID in enumerate(list_IDs_temp):
+            ID = ID[:-4] + '.npy'
             # Store sample
-            X[i,] = np.load('Data/mags/' + ID)
-
-        return X, X
+            if self.phase:
+                X[i,] = np.load('Data/phases/' + ID)
+            else:
+                X[i,] = np.load('Data/mags/' + ID)
+        if self.test:
+            return X
+        else:
+            return X, X

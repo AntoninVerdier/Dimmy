@@ -11,12 +11,11 @@ import matplotlib.pyplot as plt
 
 from scipy.io import wavfile
 from sklearn.model_selection import train_test_split
-from keras.models import Sequential, Model
+from keras.models import Sequential, Model, load_model
 from keras.layers import Input, Dense, InputLayer, Flatten, Reshape
+from keras import backend as K
 
 from data_gen import DataGenerator
-#import keras
-
 
 # Could be a good idea to store compute this as a generator because of the ram it needs.
 # Thhis way dataset will not be stored each time
@@ -58,46 +57,54 @@ def build_autoencoder(sound_shape, latent_dim):
 	return encoder, decoder
 
 # specs, files, samplerate = load_data('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-train/audio')
-
 partition = {}
 params = {'dim': (513,126),
-          'batch_size': 1024,
-          'shuffle': True}
+          'batch_size': 256,
+          'shuffle': False,}
 
-partition['train'] = os.listdir('/home/user/Documents/Antonin/Code/Dimmy/Data/mags')
-partition['validation'] = os.listdir('/home/user/Documents/Antonin/Code/Dimmy/Data/mags')
+partition['train'] = os.listdir('/home/pouple/PhD/Code/Dimmy/Data/nsynth-train/audio')
+partition['validation'] = os.listdir('/home/pouple/PhD/Code/Dimmy/Data/nsynth-valid/audio')
+partition['test'] = os.listdir('/home/pouple/PhD/Code/Dimmy/Data/nsynth-test/audio')
 
 training_generator = DataGenerator(partition['train'], **params)
 validation_generator = DataGenerator(partition['validation'], **params)
+test_generator = DataGenerator(partition['test'], test=True, **params)
 
-# for i in training_generator:
-# 	pass
 
-encoder, decoder = build_autoencoder((513, 126), 25)
+# encoder, decoder = build_autoencoder((513, 126), 25)
 
-inp = Input((513, 126))
-code = encoder(inp)
-reconstruction = decoder(code)
+# inp = Input((513, 126))
+# code = encoder(inp)
+# reconstruction = decoder(code)
 
-autoencoder = Model(inp, reconstruction)
-autoencoder.compile(optimizer='adam', loss='mse')
+# autoencoder = Model(inp, reconstruction)
+# autoencoder.compile(optimizer='adam', loss='mse')
 
-history = autoencoder.fit(training_generator,
-						  validation_data=validation_generator,
-						  epochs=1)
+# history = autoencoder.fit(training_generator,
+# 						  validation_data=validation_generator,
+# 						  epochs=1)
 
-autoencoder.save('Autoencoder_model')
-pkl.dump(history, open('model_history.pkl', 'wb'))
+#autoencoder.save('Autoencoder_model')
+# pkl.dump(history, open('model_history.pkl', 'wb'))
 
-# autoencoder = keras.models.load_model('Autoencoder_model')
+autoencoder = load_model('Autoencoder_model')
 
-# mag_t, phases_t, samplerate = load_data('home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-valid/audio')
-# decoded_mag = autoencoder.predict(mag_t)
+history = pkl.load(open('model_history.pkl', 'rb'))
+print(history)
 
-# Zxx = decoded_mag * np.exp(phases_t*1j)
+plt.plot(history['loss'], label='loss')
+plt.plot(history['val_loss'], label='val_loss')
+plt.legend()
+plt.show()
 
-# reconstructed_sounds = []
-# for i, k in enumerate(Zxx):
-# 	t, sound = signal.istft(k, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
-# 	wavfile.write('Sounds/Sound_{}'.format(i), samplerate, sound)
+decoded_mag = autoencoder.predict(test_generator)
+phases = DataGenerator(partition['test'], test=True, phase=True, **params)
+phases = np.array([p for p in phases]).reshape(4096, 513, 126)
+
+Zxx = decoded_mag * np.exp(phases*1j)
+
+reconstructed_sounds = []
+for i, k in enumerate(Zxx):
+	t, sound = signal.istft(k, fs=16000, window='hamming', nperseg=1024, noverlap=512)
+	wavfile.write('Sounds/Sound_{}'.format(partition['test'][i]), 16000, sound)
 
