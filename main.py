@@ -17,6 +17,10 @@ from keras.layers import Input, Dense, InputLayer, Flatten, Reshape
 from data_gen import DataGenerator
 #import keras
 
+
+# Could be a good idea to store compute this as a generator because of the ram it needs.
+# Thhis way dataset will not be stored each time
+
 # Load nsynth audio data randomly
 def load_data(folder, cap=None):
 	files = os.listdir(folder)
@@ -31,7 +35,7 @@ def load_data(folder, cap=None):
 			f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
 
 			specs.append(Zxx)
-		
+
 		pkl.dump([specs, fs, samplerate], open('ata_{}.pkl'.format(j), 'wb'), )
 
 
@@ -78,8 +82,8 @@ reconstruction = decoder(code)
 autoencoder = Model(inp, reconstruction)
 autoencoder.compile(optimizer='adam', loss='mse')
 
-history = autoencoder.fit(training_generator, 
-						  validation_data=validation_generator, 
+history = autoencoder.fit(training_generator,
+						  validation_data=validation_generator,
 						  epochs=1)
 
 autoencoder.save('Autoencoder_model')
@@ -96,12 +100,4 @@ pkl.dump(history, open('model_history.pkl', 'wb'))
 # for i, k in enumerate(Zxx):
 # 	t, sound = signal.istft(k, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
 # 	wavfile.write('Sounds/Sound_{}'.format(i), samplerate, sound)
-
-
-# Aitoencoder get prediction (therefore mag values)
-# Smush them with phases
-# do an ISTFT
-# get sound vibin'
-
-#################### TESTING
 
