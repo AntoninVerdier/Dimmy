@@ -60,16 +60,15 @@ def build_autoencoder(sound_shape, latent_dim):
 partition = {}
 params = {'dim': (513,126),
           'batch_size': 256,
-          'shuffle': False,}
+          'shuffle': True,}
 
-partition['train'] = os.listdir('/home/pouple/PhD/Code/Dimmy/Data/nsynth-train/audio')
+#partition['train'] = os.listdir('/home/pouple/PhD/Code/Dimmy/Data/nsynth-train/audio')
 partition['validation'] = os.listdir('/home/pouple/PhD/Code/Dimmy/Data/nsynth-valid/audio')
 partition['test'] = os.listdir('/home/pouple/PhD/Code/Dimmy/Data/nsynth-test/audio')
 
-training_generator = DataGenerator(partition['train'], **params)
+#training_generator = DataGenerator(partition['train'], **params)
 validation_generator = DataGenerator(partition['validation'], **params)
-test_generator = DataGenerator(partition['test'], test=True, **params)
-
+test_generator = DataGenerator(partition['test'], **params)
 
 # encoder, decoder = build_autoencoder((513, 126), 25)
 
@@ -80,17 +79,38 @@ test_generator = DataGenerator(partition['test'], test=True, **params)
 # autoencoder = Model(inp, reconstruction)
 # autoencoder.compile(optimizer='adam', loss='mse')
 
-# history = autoencoder.fit(training_generator,
-# 						  validation_data=validation_generator,
+# history = autoencoder.fit(validation_generator,
+# 						  validation_data=test_generator,
 # 						  epochs=1)
 
-#autoencoder.save('Autoencoder_model')
-# pkl.dump(history, open('model_history.pkl', 'wb'))
+# autoencoder.save('Autoencoder_model')
+# encoder.save('Encoder_model')
+# decoder.save('Decoder_model')
+
+#pkl.dump(history.history, open('model_history.pkl', 'wb'))
 
 autoencoder = load_model('Autoencoder_model')
+encoder = load_model('Encoder_model')
+decoder = load_model('Decoder_model')
+
+
+test_generator = DataGenerator(partition['test'], test=True, **params)
+
+prediction = encoder.predict(test_generator)
+
+print(prediction.shape)
+
+fig, axs = plt.subplots(10, 10, figsize=(20, 20))
+
+for i in range(100):
+	axs[i//10, i%10].imshow(prediction[i].reshape(5, 5))
+
+plt.show()
+
+
+
 
 history = pkl.load(open('model_history.pkl', 'rb'))
-print(history)
 
 plt.plot(history['loss'], label='loss')
 plt.plot(history['val_loss'], label='val_loss')
