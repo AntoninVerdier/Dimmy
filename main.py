@@ -56,49 +56,50 @@ def build_autoencoder(sound_shape, latent_dim):
 
 	return encoder, decoder
 
+
 # specs, files, samplerate = load_data('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-train/audio')
 partition = {}
 params = {'dim': (513,126),
           'batch_size': 256,
           'shuffle': True,}
 
-#partition['train'] = os.listdir('/home/pouple/PhD/Code/Dimmy/Data/nsynth-train/audio')
-partition['validation'] = os.listdir('/home/pouple/PhD/Code/Dimmy/Data/nsynth-valid/audio')
-partition['test'] = os.listdir('/home/pouple/PhD/Code/Dimmy/Data/nsynth-test/audio')
+partition['train'] = os.listdir('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-train/audio')
+partition['validation'] = os.listdir('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-valid/audio')
 
-#training_generator = DataGenerator(partition['train'], **params)
+training_generator = DataGenerator(partition['train'], **params)
 validation_generator = DataGenerator(partition['validation'], **params)
-test_generator = DataGenerator(partition['test'], **params)
 
-# encoder, decoder = build_autoencoder((513, 126), 25)
+pkl.dump(training_generator.indexes, open('Output/train_indexes.pkl', 'wb'))
+pkl.dump(validation_generator.indexes, open('Output/valid_indexes.pkl', 'wb'))
 
-# inp = Input((513, 126))
-# code = encoder(inp)
-# reconstruction = decoder(code)
 
-# autoencoder = Model(inp, reconstruction)
-# autoencoder.compile(optimizer='adam', loss='mse')
+encoder, decoder = build_autoencoder((513, 126), 25)
 
-# history = autoencoder.fit(validation_generator,
-# 						  validation_data=test_generator,
-# 						  epochs=1)
+inp = Input((513, 126))
+code = encoder(inp)
+reconstruction = decoder(code)
 
-# autoencoder.save('Autoencoder_model')
-# encoder.save('Encoder_model')
-# decoder.save('Decoder_model')
+autoencoder = Model(inp, reconstruction)
+autoencoder.compile(optimizer='adam', loss='mse')
 
-#pkl.dump(history.history, open('model_history.pkl', 'wb'))
+history = autoencoder.fit(training_generator,
+						  validation_data=validation_generator,
+						  epochs=120)
 
-autoencoder = load_model('Autoencoder_model')
-encoder = load_model('Encoder_model')
-decoder = load_model('Decoder_model')
+autoencoder.save('Autoencoder_model')
+encoder.save('Encoder_model')
+decoder.save('Decoder_model')
+
+pkl.dump(history.history, open('Output/model_history.pkl', 'wb'))
+
+# autoencoder = load_model('Autoencoder_model')
+# encoder = load_model('Encoder_model')
+# decoder = load_model('Decoder_model')
 
 
 test_generator = DataGenerator(partition['test'], test=True, **params)
 
 prediction = encoder.predict(test_generator)
-
-print(prediction.shape)
 
 fig, axs = plt.subplots(10, 10, figsize=(20, 20))
 
@@ -110,7 +111,7 @@ plt.show()
 
 
 
-history = pkl.load(open('model_history.pkl', 'rb'))
+history = pkl.load(open('Output/model_history.pkl', 'rb'))
 
 plt.plot(history['loss'], label='loss')
 plt.plot(history['val_loss'], label='val_loss')
@@ -127,4 +128,5 @@ reconstructed_sounds = []
 for i, k in enumerate(Zxx):
 	t, sound = signal.istft(k, fs=16000, window='hamming', nperseg=1024, noverlap=512)
 	wavfile.write('Sounds/Sound_{}'.format(partition['test'][i]), 16000, sound)
+
 
