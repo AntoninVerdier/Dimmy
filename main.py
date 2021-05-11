@@ -2,7 +2,6 @@ import os
 import pickle as pkl
 import cmath
 import keras
-import shutil
 import librosa
 import numpy as np
 from tqdm import tqdm
@@ -17,6 +16,9 @@ from keras.layers import Input, Dense, InputLayer, Flatten, Reshape
 from keras import backend as K
 
 from data_gen import DataGenerator
+
+# Could be a good idea to store compute this as a generator because of the ram it needs.
+# Thhis way dataset will not be stored each time
 
 # Load nsynth audio data randomly
 def load_data(folder, cap=None):
@@ -55,115 +57,84 @@ def build_autoencoder(sound_shape, latent_dim):
 	return encoder, decoder
 
 
-def reconstruct_sound(latent):
-	decoded_mag = decoder.predict(latent)
-	k = decoded_mag * np.exp(0j)
-	t, sound = signal.istft(k, fs=16000, window='hamming', nperseg=1024, noverlap=512)
-	return sound
+# specs, files, samplerate = load_data('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-train/audio')
+partition = {}
+params = {'dim': (513,126),
+          'batch_size': 1024,
+          'shuffle': True,}
 
-def sound_summary(sound_name):
-	if not os.path.exists(os.path.join('Output', 'Summary', sound_name)):
-		os.makedirs(os.path.join('Output', 'Summary', sound_name))
-	# make a copy to a new folder of the wav file
-	mag = np.load('Data/mags/{}.npy'.format(sound_name)).reshape(1, 513, 126)
-	phase = np.load('Data/phases/{}.npy'.format(sound_name))
+partition['train'] = os.listdir('/home/pouple/PhD/Code/Dimmy/Data/nsynth-train/audio')
+partition['validation'] = os.listdir('/home/pouple/PhD/Code/Dimmy/Data/nsynth-valid/audio')
 
+training_generator = DataGenerator(partition['train'], **params)
+validation_generator = DataGenerator(partition['validation'], **params)
 
+pkl.dump(training_generator.indexes, open('Output/train_indexes.pkl', 'wb'))
+pkl.dump(validation_generator.indexes, open('Output/valid_indexes.pkl', 'wb'))
 
+# for i, batch in tqdm(enumerate(training_generator)):
+# 	np.save(open('tmp/batch_{}'.format(i), 'wb'), batch)
 
-	jitter = np.random.uniform(size=(513, 126))
-	encoded_mag = encoder.predict(mag)
-	decoded_mag = decoder.predict(encoded_mag)
+for i in os.listdir('tmp/'):
+	a = np.load(open('tmp/{}'.format(i)), 'rb', encoding='bytes')
+	print(a.shape)
+tmp_generator = {np.load(open('tmp/{}'.format(i), 'rb')) for i in os.listdir('tmp/')}
 
-	k = decoded_mag * np.exp(0j)
-	t, sound = signal.istft(k, fs=16000, window='hamming', nperseg=1024, noverlap=512)
+encoder, decoder = build_autoencoder((513, 126), 25)
 
-	wavfile.write(os.path.join('Output', 'Summary', sound_name, 'reconstructed_nophase.wav'), 16000, sound[0])
-	shutil.copyfile('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio/{}.wav'.format(sound_name), 
-					os.path.join('Output', 'Summary', sound_name, 'original.wav'))
+inp = Input((513, 126))
+code = encoder(inp)
+reconstruction = decoder(code)
 
-def reconstruct_all(Zxx):
-	reconstructed_sounds = []
-	for i, k in enumerate(Zxx):
-		t, sound = signal.istft(k, fs=16000, window='hamming', nperseg=1024, noverlap=512)
-		wavfile.write('Sounds/Sound_{}'.format(partition['test'][i]), 16000, sound)
+autoencoder = Model(inp, reconstruction)
+autoencoder.compile(optimizer='adam', loss='mse')
 
-def load_parameters():
-	partition = {}
-	params = {'dim': (513,126),
-	          'batch_size': 256,
-	          'shuffle': False,}
+history = autoencoder.fit(tmp_generator,
+						  validation_data=validation_generator,
+						  epochs=120)
 
-	partition['train'] = os.listdir('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-train/audio')
-	partition['validation'] = os.listdir('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-valid/audio')
-	partition['test'] = os.listdir('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio')
+autoencoder.save('Autoencoder_model')
+encoder.save('Encoder_model')
+decoder.save('Decoder_model')
 
-	return partition, params
-
-def train_autoencoder(partition, params):
-	training_generator = DataGenerator(partition['train'], **params)
-	validation_generator = DataGenerator(partition['validation'], **params)
-
-	pkl.dump(training_generator.indexes, open('Output/train_indexes.pkl', 'wb'))
-	pkl.dump(validation_generator.indexes, open('Output/valid_indexes.pkl', 'wb'))
-
-	encoder, decoder = build_autoencoder((513, 126), 25)
-
-	inp = Input((513, 126))
-	code = encoder(inp)
-	reconstruction = decoder(code)
-
-	autoencoder = Model(inp, reconstruction)
-	autoencoder.compile(optimizer='adam', loss='mse')
-
-	history = autoencoder.fit(training_generator,
-							  validation_data=validation_generator,
-							  epochs=120)
-
-	autoencoder.save('Autoencoder_model')
-	encoder.save('Encoder_model')
-	decoder.save('Decoder_model')
-
-	pkl.dump(history.history, open('Output/model_history.pkl', 'wb'))
+pkl.dump(history.history, open('Output/model_history.pkl', 'wb'))
 
 autoencoder = load_model('Autoencoder_model')
 encoder = load_model('Encoder_model')
 decoder = load_model('Decoder_model')
 
-partition, params = load_parameters()
+params = {'dim': (513,126),
+          'batch_size': 1,
+          'shuffle': False,}
 
-sound_summary('guitar_acoustic_021-056-075')
+partition['test'] = os.listdir('/home/pouple/PhD/Code/Dimmy/Data/nsynth-test/audio')
+
+test_generator = DataGenerator(partition['test'], test=True, **params)
+phases = DataGenerator(partition['test'], test=True, phase=True, **params)
+
+magnitudes = encoder.predict(test_generator)
+prediction = decoder.predict(magnitudes)
+phases = np.array([p for p in phases]).reshape(4096, 513, 126)
+
+null = np.zeros(shape=(4096, 513, 126))
+Zxx = prediction * np.exp(null*1j)
+
+reconstructed_sounds = []
+for i, k in enumerate(Zxx):
+	t, sound = signal.istft(k, fs=16000, window='hamming', nperseg=1024, noverlap=512)
+	wavfile.write('Sounds/Sound_{}'.format(partition['test'][i]), 16000, sound)
 
 
-# test_generator = DataGenerator(partition['test'], test=True, **params)
-# prediction = encoder.predict(test_generator)
+fig, axs = plt.subplots(10, 10, figsize=(20, 20))
 
-# fig, axs = plt.subplots(10, 10, figsize=(20, 20))
+for i in range(100):
+	axs[i//10, i%10].imshow(prediction[i].reshape(5, 5))
 
-# kb_elec = [i for i, f in enumerate(test_generator.list_IDs) if 'vocal_acoustic' in f]
-
-# for i, j in enumerate(kb_elec[:100]):
-# 	axs[i//10, i%10].imshow(prediction[j].reshape(5, 5))
-
-# plt.show()
+plt.show()
 
 
 
 
-# history = pkl.load(open('Output/model_history.pkl', 'rb'))
 
-# plt.plot(history['loss'], label='loss')
-# plt.plot(history['val_loss'], label='val_loss')
-# plt.legend()
-# plt.show()
 
-# decoded_mag = autoencoder.predict(test_generator)
-# phases = DataGenerator(partition['test'], test=True, phase=True, **params)
-# phases = np.array([p for p in phases]).reshape(4096, 513, 126)
-# plt.imshow(phases[0])
-# plt.show()
-
-# Zxx = decoded_mag * np.exp(0j)
-
-# reconstruct_all(Zxx)
 
