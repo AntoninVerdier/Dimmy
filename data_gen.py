@@ -3,7 +3,7 @@ import numpy as np
 
 class DataGenerator(keras.utils.Sequence):
     'Generates data for Keras'
-    def __init__(self, list_IDs, batch_size=256, dim=(64000,), shuffle=True, path=None, test=False, phase=False):
+    def __init__(self, list_IDs, dim=(64000,), batch_size=256, shuffle=True, path=None, test=False, phase=False):
         'Initialization'
         self.dim = dim
         self.batch_size = batch_size
@@ -16,6 +16,7 @@ class DataGenerator(keras.utils.Sequence):
 
     def __len__(self):
         'Denotes the number of batches per epoch'
+        print(self.batch_size)
         return int(np.floor(len(self.list_IDs) / self.batch_size))
 
     def __getitem__(self, index):
