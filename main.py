@@ -11,7 +11,7 @@ from keras.models import Sequential, Model, load_model
 from keras.layers import Input, Dense, InputLayer, Flatten, Reshape
 
 import settings as s
-from data_gen import DataGenerator
+from data_gen import DataGenerator, DataGenerator_both
 
 paths = s.paths()
 params = s.params()
@@ -43,7 +43,7 @@ def build_autoencoder(sound_shape, latent_dim):
 
 	return encoder, decoder, autoencoder
 
-def get_generators(dim, batch_size, shuffle=True):
+def get_generators(dim, batch_size, shuffle=True, channels=False):
 	print(dim, batch_size, shuffle)
 	partition = {}
 	partition['train'] = os.listdir(paths.path2train)
@@ -53,6 +53,11 @@ def get_generators(dim, batch_size, shuffle=True):
 	training_generator = DataGenerator(partition['train'], dim, batch_size, shuffle)
 	validation_generator = DataGenerator(partition['validation'], dim, batch_size, shuffle)
 	test_generator = DataGenerator(partition['test'], dim, batch_size, shuffle)
+
+	if channels:
+			training_generator = DataGenerator_both(partition['train'], dim, batch_size, shuffle)
+			validation_generator = DataGenerator_both(partition['validation'], dim, batch_size, shuffle)
+			test_generator = DataGenerator_both(partition['test'], dim, batch_size, shuffle)
 
 	if not os.path.exists('Output/generator/'):
 		os.makedirs('Output/generator/')
@@ -64,8 +69,8 @@ def get_generators(dim, batch_size, shuffle=True):
 
 	return training_generator, validation_generator, test_generator
 
-training_generator, validation_generator, test_generator = get_generators(**params.gen_params)
-encoder, decoder, autoencoder = build_autoencoder(params.specshape, params.latent_size)
+training_generator, validation_generator, test_generator = get_generators(**params.gen_params, channels=True)
+encoder, decoder, autoencoder = build_autoencoder((513, 126, 2), params.latent_size)
 
 history = autoencoder.fit(validation_generator,
 						  validation_data=test_generator,
