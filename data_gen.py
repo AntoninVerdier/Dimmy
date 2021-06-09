@@ -1,5 +1,11 @@
+import os
 import keras
 import numpy as np
+import pickle as pkl
+
+import settings as s 
+
+paths = s.paths()
 
 class DataGenerator(keras.utils.Sequence):
     'Generates data for Keras'
@@ -110,3 +116,39 @@ class DataGenerator_both(keras.utils.Sequence):
         X = np.stack((m, p), axis=3)
 
         return X, X
+
+def get_generators(dim, batch_size, shuffle=True, channels=False, test=False):
+
+    partition = {}
+    partition['train'] = os.listdir(paths.path2train)
+    partition['validation'] = os.listdir(paths.path2valid)
+    partition['test'] = os.listdir(paths.path2test)
+
+    if not test:
+        training_generator = DataGenerator(partition['train'], dim, batch_size, shuffle)
+        validation_generator = DataGenerator(partition['validation'], dim, batch_size, shuffle)
+        test_generator = DataGenerator(partition['test'], dim, batch_size, shuffle)
+
+        if channels:
+                training_generator = DataGenerator_both(partition['train'], dim, batch_size, shuffle)
+                validation_generator = DataGenerator_both(partition['validation'], dim, batch_size, shuffle)
+                test_generator = DataGenerator_both(partition['test'], dim, batch_size, shuffle)
+
+        if not os.path.exists('Output/generator/'):
+            os.makedirs('Output/generator/')
+
+        pkl.dump(training_generator.indexes, open('Output/generator/train_indexes.pkl', 'wb'))
+        pkl.dump(validation_generator.indexes, open('Output/generator/valid_indexes.pkl', 'wb'))
+        pkl.dump(test_generator.indexes, open('Output/generator/test_indexes.pkl', 'wb'))
+
+        return training_generator, validation_generator, test_generator
+    else:
+        test_generator = DataGenerator(partition['test'], dim, batch_size, shuffle, test=True)
+        phases = DataGenerator(partition['test'], dim, batch_size, shuffle, test=True, phase=True)
+
+        return test_generator, phases
+
+
+
+
+
