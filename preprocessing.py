@@ -1,4 +1,5 @@
 import os
+import pickle as pkl
 import librosa
 import numpy as np
 
@@ -18,36 +19,49 @@ def load_data(folder, cap=None):
 
 	ids = [f[:-4] for f in files]
 
-	dataset = np.empty((len(ids), 513, 126), dtype=np.int16)
+	dataset = {}
 
 	for i, file in enumerate(tqdm(ids)):
 		sample, samplerate = librosa.load(os.path.join(folder, file + '.wav'), sr=16000)
 
+		f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
+
+		mag = np.abs(Zxx)
+		dataset[file] = mag
+
+	all_max = 0
+	for k in dataset:
+		curr_max = np.max(dataset[k])
+		if curr_max > all_max:
+			all_max = curr_max
+
+	for k in dataset:
+		dataset[k] = np.array((dataset[k]/all_max)*(2**16), dtype=np.uint16)
+
+	pkl.dump(dataset, open('dataset1.pkl', 'wb'))
+
+def load_data_array(folder, cap=None):
+	files = os.listdir(folder)
+
+	ids = [f[:-4] for f in files]
+
+	dataset = np.empty((len(ids), 513, 126), dtype=np.float16)
+
+	for i, file in enumerate(tqdm(ids)):
+		sample, samplerate = librosa.load(os.path.join(folder, file + '.wav'), sr=16000)
 
 		f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
 
+		mag = np.log(1 + np.abs(Zxx))
 
-		#normag = np.floor((np.abs(Zxx) - np.min(np.abs(Zxx)))/np.max(np.abs(Zxx))*(2**16))
-		mag = np.abs(Zxx)
 		dataset[i, :, :] = mag
-		# maglog = np.log(mag)
-		# plt.imshow(maglog)
-		# plt.show()
-		# plt.close()
-		# plt.imshow(mag)
-		# plt.show()
-		#dataset[i, 1, :, :] = np.angle(Zxx)
 
-	dmax = np.max(dataset)
-	mmax = np.min(dataset)
+	dataset = dataset/np.max(dataset)
 
-	for i, row in enumerate(dataset):
-		dataset[i] = (dataset[i] - np.min(dataset))/np.max(dataset)
-
-	np.save(open('dataset1.npy', 'wb'), dataset)
-	print('ok')
+	pkl.dump(dataset, open('dataset_train.pkl', 'wb'))
 
 
+################" TEHRE IS A PB WITH THSI PREPRO"
 		
 
 
@@ -58,22 +72,23 @@ def load_data(folder, cap=None):
 
 
 def load_data_multi(file):
+
 	sample, samplerate = librosa.load(os.path.join(folder, file + '.wav'), sr=16000)
 
 	f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
 
-	mag = np.abs(Zxx)
-	phase = np.angle(Zxx)
+	mag = np.log(1 + np.abs(Zxx))
 
-	np.save(open('Data/mags/{}.npy'.format(file), 'wb'), mag)
-	np.save(open('Data/phases/{}.npy'.format(file), 'wb'), phase)
+	dataset[i, :, :] = mag
 
-#load_data('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-train/audio')
+
+load_data_array('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-train/audio')
 
 # if __name__ == '__main__':
-# 	folder = '/home/user/Documents/Antonin/Code/Dimmy/Data/DeepenSounds/AutoencoderSounds_Longer/WavFilesLong'
+# 	folder = '/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-train/audio'
 # 	files = os.listdir(folder)
 # 	ids = [f[:-4] for f in files]
+# 	dataset = np.empty((len(ids), 513, 126), dtype=np.float16)
 # 	pool = Pool(processes=24)
 # 	pool.map(load_data_multi, ids)
 
