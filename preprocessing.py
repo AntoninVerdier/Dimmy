@@ -54,19 +54,19 @@ def load_data_array(folder, cap=None):
 
 		mag = np.log(1 + np.abs(Zxx))
 
-		dataset[i, :, :] = mag
+		dataset[i, :, :] = mag.astype(np.float16)
 
-	dataset = dataset/np.max(dataset)
+	dataset = np.array(dataset/np.max(dataset), dtype=np.float16)
+	dataset = dataset * 255
+	dataset = np.array(dataset, dtype=np.uint8)
 
-	pkl.dump(dataset, open('dataset_train.pkl', 'wb'))
+	print(np.max(dataset), np.min(dataset))
+
+	pkl.dump(dataset, open('dataset_test.pkl', 'wb'))
 
 
-################" TEHRE IS A PB WITH THSI PREPRO"
 		
 
-
-		# np.save(open('Data/mags-test/{}.npy'.format(file), 'wb'), mag)
-		# np.save(open('Data/phases-test/{}.npy'.format(file), 'wb'), phase)
 
 # load_data('/home/pouple/PhD/Code/Dimmy/Data/nsynth-train/audio')
 
@@ -82,7 +82,7 @@ def load_data_multi(file):
 	dataset[i, :, :] = mag
 
 
-load_data_array('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-train/audio')
+load_data_array('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio')
 
 # if __name__ == '__main__':
 # 	folder = '/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-train/audio'

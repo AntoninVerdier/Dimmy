@@ -23,12 +23,10 @@ params = s.params()
 
 
 #training_generator, validation_generator, test_generator = get_generators(**params.gen_params, channels=False, dataset='dataset1.pkl')
-# X_train = pkl.load(open('dataset_npy.pkl', 'rb'))
-
+# X_train = np.load(open('dataset_train.pkl', 'rb'), allow_pickle=True)
 
 # #training_generator = ((X, X) for X in np.array_split(X_train, 256))
 # # try to declare training data and do a dict comprehension at the same time
-
 
 # auto = Autoencoder('dense', (513, 126), params.latent_size)
 # encoder, decoder, autoencoder = auto.get_model()
