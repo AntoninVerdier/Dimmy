@@ -30,7 +30,7 @@ np.random.shuffle(X_train)
 
 #training_generator = ((X, X) for X in np.array_split(X_train, 256))
 
-auto = Autoencoder('densebin', (513, 126), params.latent_size)
+auto = Autoencoder('conv_simple', (513, 126), params.latent_size)
 encoder, decoder, autoencoder = auto.get_model()
 print(autoencoder.summary())
 
