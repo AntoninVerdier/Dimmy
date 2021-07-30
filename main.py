@@ -1,4 +1,5 @@
 import os
+import argparse
 import pickle as pkl
 import numpy as np
 
@@ -20,38 +21,42 @@ from data_gen import DataGenerator, DataGenerator_both, get_generators
 paths = s.paths()
 params = s.params()
 
-# Could be a good idea to store compute this as a generator because of the ram it needs.
-# Thhis way dataset will not be stored each time
+parser = argparse.ArgumentParser(description='Flags for model training')
 
+parser.add_argument('--train', '-t', action='store_true',
+                    help='Train the network')
+parser.add_argument('--predict', '-p', action='store_true',
+                    help='')
 
-# training_generator, validation_generator, test_generator = get_generators(**params.gen_params, channels=False, dataset='dataset1.pkl')
-X_train = np.load(open('dataset_train.pkl', 'rb'), allow_pickle=True)
-np.random.shuffle(X_train)
+args = parser.parse_args()
 
-#training_generator = ((X, X) for X in np.array_split(X_train, 256))
+if args.train:
+    X_train = np.load(open('dataset_train.pkl', 'rb'), allow_pickle=True)
+    np.random.shuffle(X_train)
 
-auto = Autoencoder('conv_simple', (513, 126), params.latent_size)
-encoder, decoder, autoencoder = auto.get_model()
-print(autoencoder.summary())
+    auto = Autoencoder('conv_simple', (513, 126), params.latent_size)
+    encoder, decoder, autoencoder = auto.get_model()
 
-history = autoencoder.fit(X_train, X_train,
-                          epochs=params.epochs, 
-                          batch_size=256)
+    history = autoencoder.fit(X_train, X_train,
+                              epochs=params.epochs, 
+                              batch_size=256)
 
-autoencoder.save('Autoencoder_model')
-encoder.save('Encoder_model')
-decoder.save('Decoder_model')
+    autoencoder.save(os.path.join(paths.path2Models, 'Autoencoder_model'))
+    encoder.save(os.path.join(paths.path2Models, 'Encoder_model'))
+    decoder.save(os.path.join(paths.path2Models, 'Decoder_model'))
 
-pkl.dump(history.history, open('Output/model_history.pkl', 'wb'))
+    pkl.dump(history.history, open(os.path.join(paths.path2Models, 'model_history.pkl', 'wb')))
 
-# autoencoder = load_model('Autoencoder_model')
-# encoder = load_model('Encoder_model')
-# decoder = load_model('Decoder_model')
+if args.predict:
 
-# history = pkl.load(open('Output/model_history.pkl', 'rb'))
-# print(history)
-# plt.plot(history['loss'])
-# plt.show()
+  autoencoder = load_model(os.path.join(paths.path2Models,'Autoencoder_model'))
+  encoder = load_model(os.path.join(paths.path2Models,'Encoder_model'))
+  decoder = load_model(os.path.join(paths.path2Models,'Decoder_model'))
+
+history = pkl.load(open('Output/model_history.pkl', 'rb'))
+plt.plot(history['loss'])
+plt.savefig('Output/model_history.png')
+
 # test_generator, phases = get_generators(**params.test_params, test=True)
 
 # X_test = pkl.load(open('dataset_test.pkl', 'rb'))

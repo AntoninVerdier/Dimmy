@@ -9,6 +9,7 @@ class paths():
 		self.path2test = os.path.join(self.path2Data, 'nsynth-test/audio')
 
 		self.path2soundsSJ = os.path.join(self.path2Data, 'nsynth-test/audio')
+		self.path2Models = '/home/user/Documents/Antonin/Code/Dimmy/ModelSave'
 
 class params():
 	def __init__(self):
