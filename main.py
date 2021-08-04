@@ -27,14 +27,16 @@ parser.add_argument('--train', '-t', action='store_true',
                     help='Train the network')
 parser.add_argument('--predict', '-p', action='store_true',
                     help='')
-
+parser.add_argument('--network', '-n', type=str,
+                    help='Choose network type')
 args = parser.parse_args()
+
 
 if args.train:
     X_train = np.load(open('dataset_train.pkl', 'rb'), allow_pickle=True)
     np.random.shuffle(X_train)
 
-    auto = Autoencoder('conv_simple', (513, 126), params.latent_size)
+    auto = Autoencoder('{net}'.format(net=args.network if args.network else 'dense'), (513, 126), params.latent_size)
     encoder, decoder, autoencoder = auto.get_model()
 
     history = autoencoder.fit(X_train, X_train,

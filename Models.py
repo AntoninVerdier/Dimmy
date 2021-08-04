@@ -135,3 +135,20 @@ class Autoencoder():
 	def __dense_auditory(self):
 		pass
 
+	def __conv_vae(self):
+
+		encoder = Sequential()
+		encoder.add(InputLayer((*self.input_shape, 1)))
+		encoder.add(Conv2D(32, kernel_size=3, strides=(2, 2), activation='relu'))
+		encoder.add(Conv2D(64, kernel_size=3, strides=(2, 2), activation='relu'))
+		encoder.add(Flatten())
+		encoder.add(Dense(self.input_shape + self.input_shape))
+
+		print(encoder.summary())
+
+		decoder = Sequential()
+		decoder.add(InputLayer)
+
+
+
+
