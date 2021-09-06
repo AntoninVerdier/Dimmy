@@ -1,4 +1,5 @@
 import os
+import pywt
 import pickle as pkl
 import librosa
 import numpy as np
@@ -123,7 +124,24 @@ def load_data_multi(file):
 	dataset[i, :, :] = mag
 
 
-test_load_data_array('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio')
+def load_data_to_wl(folder):
+	files = os.listdir(folder)
+
+	ids = [f[:-4] for f in files]
+
+	dataset = np.empty((len(ids), 513, 126), dtype=np.float64)
+
+	for i, file in enumerate(tqdm(ids)):
+		sample, samplerate = librosa.load(os.path.join(folder, file + '.wav'), sr=16000)
+		coef, freqs=pywt.cwt(sample ,np.arange(1,129),'mexh')
+		fig = plt.figure()
+		ax = fig.add_subplot(111)
+		ax.matshow(coef) # doctest: +SKIP
+		plt.axis('auto')
+		plt.show()
+
+#test_load_data_array('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio')
+load_data_to_wl('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio')
 
 # if __name__ == '__main__':
 # 	folder = '/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-train/audio'

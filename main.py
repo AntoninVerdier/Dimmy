@@ -18,6 +18,7 @@ from Models import Autoencoder
 
 from data_gen import DataGenerator, DataGenerator_both, get_generators
 
+
 paths = s.paths()
 params = s.params()
 
@@ -32,6 +33,7 @@ parser.add_argument('--network', '-n', type=str,
 args = parser.parse_args()
 
 
+
 if args.train:
     X_train = np.load(open('dataset_train.pkl', 'rb'), allow_pickle=True)
     np.random.shuffle(X_train)
@@ -41,7 +43,8 @@ if args.train:
 
     history = autoencoder.fit(X_train, X_train,
                               epochs=params.epochs, 
-                              batch_size=256)
+                              batch_size=256,
+                              callbacks=[params.tb_callback])
 
     autoencoder.save(os.path.join(paths.path2Models, 'Autoencoder_model'))
     encoder.save(os.path.join(paths.path2Models, 'Encoder_model'))

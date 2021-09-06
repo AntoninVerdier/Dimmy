@@ -2,7 +2,7 @@ import keras
 import numpy as np
 
 from keras.models import Sequential, Model, load_model
-from keras.layers import Input, Dense, InputLayer, Flatten, Reshape, Layer, Conv2D
+from keras.layers import Input, Dense, InputLayer, Flatten, Reshape, Layer, Conv2D, Conv2DTranspose
 from keras import backend as K
 
 # class BinningLayer(Layer):
@@ -39,6 +39,8 @@ class Autoencoder():
 			return self.__dense_with_constraints()
 		elif self.model == 'conv_simple':
 			return self.__conv_simple()
+		elif self.model == 'conv_vae':
+			return self.__conv_vae()
 	
 	def get_data(self):
 		if self.dataset_type == 'log':
@@ -136,19 +138,46 @@ class Autoencoder():
 		pass
 
 	def __conv_vae(self):
+		print(self.input_shape)
 
 		encoder = Sequential()
 		encoder.add(InputLayer((*self.input_shape, 1)))
 		encoder.add(Conv2D(32, kernel_size=3, strides=(2, 2), activation='relu'))
 		encoder.add(Conv2D(64, kernel_size=3, strides=(2, 2), activation='relu'))
 		encoder.add(Flatten())
-		encoder.add(Dense(self.input_shape + self.input_shape))
+		encoder.add(Dense(self.latent_dim + self.latent_dim))
 
 		print(encoder.summary())
 
 		decoder = Sequential()
-		decoder.add(InputLayer)
+		decoder.add(InputLayer(input_shape=(self.latent_dim,)))
+		decoder.add(Dense(units=7*7*32, activation='relu'))
+		decoder.add(Reshape(target_shape=(7, 7, 32)))
+		decoder.add(Conv2DTranspose(64, kernel_size=3, strides=2, padding='same', activation='relu'))
+		decoder.add(Conv2DTranspose(32, kernel_size=3, strides=2, padding='same', activation='relu'))
+		decoder.add(Conv2DTranspose(1, kernel_size=3, strides=2, padding='same'))
 
+
+	  @tf.function
+	  def sample(self, eps=None):
+	    if eps is None:
+	      eps = tf.random.normal(shape=(100, self.latent_dim))
+	    return self.decode(eps, apply_sigmoid=True)
+
+	  def encode(self, x):
+	    mean, logvar = tf.split(self.encoder(x), num_or_size_splits=2, axis=1)
+	    return mean, logvar
+
+	  def reparameterize(self, mean, logvar):
+	    eps = tf.random.normal(shape=mean.shape)
+	    return eps * tf.exp(logvar * .5) + mean
+
+	  def decode(self, z, apply_sigmoid=False):
+	    logits = self.decoder(z)
+	    if apply_sigmoid:
+	      probs = tf.sigmoid(logits)
+	      return probs
+	    return logits
 
 
 
