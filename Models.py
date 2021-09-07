@@ -2,7 +2,7 @@ import keras
 import numpy as np
 
 from keras.models import Sequential, Model, load_model
-from keras.layers import Input, Dense, InputLayer, Flatten, Reshape, Layer, Conv2D, Conv2DTranspose
+from keras.layers import Input, Dense, InputLayer, Flatten, Reshape, Layer, Conv2D, Conv2DTranspose, MaxPooling2D
 from keras import backend as K
 
 # class BinningLayer(Layer):
@@ -105,26 +105,34 @@ class Autoencoder():
 
 	def __conv_simple(self):
 
+
 		encoder = Sequential()
 		encoder.add(InputLayer((*self.input_shape, 1)))
-		encoder.add(Conv2D(256, kernel_size=(3, 3), padding='same', activation='relu'))
-		encoder.add(Conv2D(64, kernel_size=(5, 5), padding='same', activation='relu'))
-		encoder.add(Flatten())
-		encoder.add(Dense(self.latent_dim))
+		encoder.add(Conv2D(32, kernel_size=(3, 3), padding='same', activation='relu'))
+		encoder.add(MaxPooling2D((2, 2), padding="same"))
+		encoder.add(Conv2D(32, kernel_size=(3, 3), padding='same', activation='relu'))
+		encoder.add(MaxPooling2D((2, 2), padding="same"))
 
 		print(encoder.summary())
 
 		decoder = Sequential()
-		decoder.add(InputLayer((self.latent_dim)))
-		encoder.add(Dense(self.latent_dim, activation='softmax'))
-		encoder.add(Dense(513*126*64))
-		encoder.add(Reshape((513, 126, 64)))
-		encoder.add(Conv2D(64, kernel_size=(5, 5), activation='relu'))
-		encoder.add(Conv2D(256, kernel_size=(3, 3), activation='relu'))
-		decoder.add(Dense(np.prod(self.input_shape)))
-		decoder.add(Reshape(self.input_shape))
+		# decoder.add(InputLayer((self.latent_dim)))
+		decoder.add(Conv2DTranspose(32, (3, 3), strides=2, activation="relu", padding="same"))
+		decoder.add(Conv2DTranspose(32, (3, 3), strides=2, activation="relu", padding="same"))
+		decoder.add(Conv2D(1, (3, 3), activation="sigmoid", padding="same"))
 
-		inp = Input(self.input_shape)
+		# encoder.add(Dense(self.latent_dim, activation='softmax'))
+		# encoder.add(Dense(513*126*64))
+		# encoder.add(Reshape((513, 126, 64)))
+		# encoder.add(Conv2D(64, kernel_size=(5, 5), activation='relu'))
+		# encoder.add(Conv2D(256, kernel_size=(3, 3), activation='relu'))
+		# decoder.add(Dense(np.prod(self.input_shape)))
+		# decoder.add(Reshape(self.input_shape))
+
+		print(*self.input_shape)
+
+
+		inp = Input(*self.input_shape, 1)
 		code = encoder(inp)
 		reconstruction = decoder(code)
 
@@ -158,26 +166,26 @@ class Autoencoder():
 		decoder.add(Conv2DTranspose(1, kernel_size=3, strides=2, padding='same'))
 
 
-	  @tf.function
-	  def sample(self, eps=None):
-	    if eps is None:
-	      eps = tf.random.normal(shape=(100, self.latent_dim))
-	    return self.decode(eps, apply_sigmoid=True)
+		@tf.function
+		def sample(self, eps=None):
+			if eps is None:
+				eps = tf.random.normal(shape=(100, self.latent_dim))
+				return self.decode(eps, apply_sigmoid=True)
 
-	  def encode(self, x):
-	    mean, logvar = tf.split(self.encoder(x), num_or_size_splits=2, axis=1)
-	    return mean, logvar
+		def encode(self, x):
+			mean, logvar = tf.split(self.encoder(x), num_or_size_splits=2, axis=1)
+			return mean, logvar
 
-	  def reparameterize(self, mean, logvar):
-	    eps = tf.random.normal(shape=mean.shape)
-	    return eps * tf.exp(logvar * .5) + mean
+		def reparameterize(self, mean, logvar):
+			eps = tf.random.normal(shape=mean.shape)
+			return eps * tf.exp(logvar * .5) + mean
 
-	  def decode(self, z, apply_sigmoid=False):
-	    logits = self.decoder(z)
-	    if apply_sigmoid:
-	      probs = tf.sigmoid(logits)
-	      return probs
-	    return logits
+		def decode(self, z, apply_sigmoid=False):
+			logits = self.decoder(z)
+			if apply_sigmoid:
+				probs = tf.sigmoid(logits)
+				return probs
+			return logits
 
 
 
