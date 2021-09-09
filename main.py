@@ -1,22 +1,23 @@
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import argparse
 import pickle as pkl
 import numpy as np
 
-from keras.models import load_model, Model
+import tensorflow.keras as keras
+
+from tensorflow.keras.models import load_model, Model
 
 from scipy import signal
 import matplotlib.pyplot as plt
-
 from scipy.io import wavfile
-
 from tqdm import tqdm 
-
-
 import settings as s
+
 from Models import Autoencoder
 
 from data_gen import DataGenerator, DataGenerator_both, get_generators
+from tensorflow.keras.callbacks import TensorBoard
 
 
 paths = s.paths()
@@ -26,31 +27,57 @@ parser = argparse.ArgumentParser(description='Flags for model training')
 
 parser.add_argument('--train', '-t', action='store_true',
                     help='Train the network')
+parser.add_argument('--data_size', '-d', type=int, default=1,
+                    help='Percentage of selected training data')
 parser.add_argument('--predict', '-p', action='store_true',
                     help='')
 parser.add_argument('--network', '-n', type=str,
                     help='Choose network type')
 args = parser.parse_args()
 
+# Tensorboard for weight and traingin evaluation
+tensorboard = TensorBoard(
+  log_dir='./logs',
+  histogram_freq=1,
+  write_images=True,
+  update_freq=5
+)
+
+keras_callbacks = [
+  tensorboard
+]
+
 
 
 if args.train:
     X_train = np.load(open('dataset_train.pkl', 'rb'), allow_pickle=True)
-    np.random.shuffle(X_train)
+    
+    # Select the desired portion of the data and shuffle it
+    shuffle_mask = np.random.choice(X_train.shape[0], int(args.data_size/100 * X_train.shape[0]), replace=False)
+    X_train = X_train[shuffle_mask]
 
-    auto = Autoencoder('{net}'.format(net=args.network if args.network else 'dense'), (513, 126), params.latent_size)
+    if args.network == 'conv_simple': # This to enable fair splitting for convolution
+      X_train = X_train[:512, :124]
+      input_shape = (512, 124)
+
+    else:
+      input_shape = (513, 126)
+
+    print(input_shape)
+
+    auto = Autoencoder('{net}'.format(net=args.network if args.network else 'dense'), input_shape, params.latent_size)
     encoder, decoder, autoencoder = auto.get_model()
 
     history = autoencoder.fit(X_train, X_train,
                               epochs=params.epochs, 
                               batch_size=256,
-                              callbacks=[params.tb_callback])
+                              callbacks=keras_callbacks)
 
     autoencoder.save(os.path.join(paths.path2Models, 'Autoencoder_model'))
     encoder.save(os.path.join(paths.path2Models, 'Encoder_model'))
     decoder.save(os.path.join(paths.path2Models, 'Decoder_model'))
 
-    pkl.dump(history.history, open(os.path.join(paths.path2Models, 'model_history.pkl', 'wb')))
+    pkl.dump(history.history, open(os.path.join(paths.path2Models, 'model_history.pkl'), 'wb'))
 
 if args.predict:
 

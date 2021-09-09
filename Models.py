@@ -1,9 +1,9 @@
-import keras
+import tensorflow.keras
 import numpy as np
 
-from keras.models import Sequential, Model, load_model
-from keras.layers import Input, Dense, InputLayer, Flatten, Reshape, Layer, Conv2D, Conv2DTranspose, MaxPooling2D
-from keras import backend as K
+from tensorflow.keras.models import Sequential, Model, load_model
+from tensorflow.keras.layers import Input, Dense, InputLayer, Flatten, Reshape, Layer, Conv2D, Conv2DTranspose, MaxPooling2D, UpSampling2D
+from tensorflow.keras import backend as K
 
 # class BinningLayer(Layer):
 # 	self.output_dim = output_dim
@@ -58,7 +58,7 @@ class Autoencoder():
 		encoder.add(Dense(1024, activation='tanh'))
 		encoder.add(Dense(513, activation='tanh'))
 		encoder.add(Dense(256, activation='tanh'))
-		encoder.add(Dense(self.latent_dim))
+		encoder.add(Dense(self.latent_dim, name='latent_dim'))
 
 		decoder = Sequential()
 		decoder.add(InputLayer((self.latent_dim,)))
@@ -72,7 +72,7 @@ class Autoencoder():
 		code = encoder(inp)
 		reconstruction = decoder(code)
 
-		autoencoder = Model(inp, reconstruction)
+		autoencoder = Model(inp, reconstruction, name='conv_simple')
 		autoencoder.compile(optimizer='adam', loss='mse')
 		return encoder, decoder, autoencoder
 
@@ -105,21 +105,38 @@ class Autoencoder():
 
 	def __conv_simple(self):
 
+		input_img = Input(shape=(*self.input_shape, 1))
 
-		encoder = Sequential()
-		encoder.add(InputLayer((*self.input_shape, 1)))
-		encoder.add(Conv2D(32, kernel_size=(3, 3), padding='same', activation='relu'))
-		encoder.add(MaxPooling2D((2, 2), padding="same"))
-		encoder.add(Conv2D(32, kernel_size=(3, 3), padding='same', activation='relu'))
-		encoder.add(MaxPooling2D((2, 2), padding="same"))
+		#encoder.add(InputLayer((*self.input_shape, 1)))
+		encoder = Conv2D(32, kernel_size=(3, 3), padding='same', activation='relu')(input_img)
+		encoder = MaxPooling2D((2, 2), padding="same")(encoder)
+		encoder = Conv2D(32, kernel_size=(3, 3), padding='same', activation='relu')(encoder)
+		encoder = MaxPooling2D((2, 2), padding="same")(encoder)
 
-		print(encoder.summary())
-
-		decoder = Sequential()
 		# decoder.add(InputLayer((self.latent_dim)))
-		decoder.add(Conv2DTranspose(32, (3, 3), strides=2, activation="relu", padding="same"))
-		decoder.add(Conv2DTranspose(32, (3, 3), strides=2, activation="relu", padding="same"))
-		decoder.add(Conv2D(1, (3, 3), activation="sigmoid", padding="same"))
+		decoder = Conv2DTranspose(32, (3, 3), strides=1, activation="relu", padding="same")(encoder)
+		decoder = UpSampling2D((2, 2))(decoder)
+		decoder = Conv2DTranspose(32, (3, 3), strides=1, activation="relu", padding="same")(decoder)
+		decoder = UpSampling2D((2, 2))(decoder)
+		decoder = Conv2D(1, (1, 1), activation="sigmoid", padding="same")(decoder)
+
+
+		# self.input_shape = (*self.input_shape, 1)
+
+		# encoder = Sequential()
+		# #encoder.add(InputLayer((*self.input_shape, 1)))
+		# encoder.add(Conv2D(32, kernel_size=(3, 3), padding='same', activation='relu', input_shape=self.input_shape))
+		# encoder.add(MaxPooling2D((2, 2), padding="same"))
+		# encoder.add(Conv2D(32, kernel_size=(3, 3), padding='same', activation='relu'))
+		# encoder.add(MaxPooling2D((2, 2), padding="same"))
+
+		# print(encoder.summary())
+
+		# decoder = Sequential()
+		# # decoder.add(InputLayer((self.latent_dim)))
+		# decoder.add(Conv2DTranspose(32, (3, 3), strides=2, activation="relu", padding="same"))
+		# decoder.add(Conv2DTranspose(32, (3, 3), strides=2, activation="relu", padding="same"))
+		# decoder.add(Conv2D(1, (3, 3), activation="sigmoid", padding="same"))
 
 		# encoder.add(Dense(self.latent_dim, activation='softmax'))
 		# encoder.add(Dense(513*126*64))
@@ -129,15 +146,15 @@ class Autoencoder():
 		# decoder.add(Dense(np.prod(self.input_shape)))
 		# decoder.add(Reshape(self.input_shape))
 
-		print(*self.input_shape)
 
+		# inp = Input(self.input_shape, 1)
+		# code = encoder(inp)
+		# reconstruction = decoder(code)
 
-		inp = Input(*self.input_shape, 1)
-		code = encoder(inp)
-		reconstruction = decoder(code)
-
-		autoencoder = Model(inp, reconstruction)
+		autoencoder = Model(input_img, decoder)
 		autoencoder.compile(optimizer='adam', loss='mse')
+
+		print(autoencoder.summary())
 
 		return encoder, decoder, autoencoder
 
