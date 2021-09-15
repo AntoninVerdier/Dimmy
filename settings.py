@@ -19,7 +19,7 @@ class params():
 							'shuffle': False}
 		self.specshape = self.gen_params['dim']
 		self.latent_size = 36
-		self.epochs = 50
+		self.epochs = 100
 
 		self.test_params = {'dim': (513,126),
 							'batch_size': 1,

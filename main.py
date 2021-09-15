@@ -57,11 +57,12 @@ if args.train:
     X_train = X_train[shuffle_mask]
 
     if args.network == 'conv_simple': # This to enable fair splitting for convolution
-      X_train = X_train[:512, :124]
+      X_train = X_train[:, :512, :124]
       input_shape = (512, 124)
+      print(X_train.shape)
 
     else:
-      input_shape = (513, 126)
+      input_shape = (513, 124)
 
     print(input_shape)
 
@@ -70,7 +71,7 @@ if args.train:
 
     history = autoencoder.fit(X_train, X_train,
                               epochs=params.epochs, 
-                              batch_size=256,
+                              batch_size=64,
                               callbacks=keras_callbacks)
 
     autoencoder.save(os.path.join(paths.path2Models, 'Autoencoder_model'))
