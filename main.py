@@ -19,6 +19,9 @@ from Models import Autoencoder
 from data_gen import DataGenerator, DataGenerator_both, get_generators
 from tensorflow.keras.callbacks import TensorBoard
 
+from AE import Sampling
+from AE import VAE
+
 
 paths = s.paths()
 params = s.params()
@@ -71,8 +74,8 @@ if args.train:
 
     history = autoencoder.fit(X_train, X_train,
                               epochs=params.epochs, 
-                              batch_size=64,
-                              callbacks=keras_callbacks)
+                              batch_size=64)
+                              #callbacks=keras_callbacks)
 
     autoencoder.save(os.path.join(paths.path2Models, 'Autoencoder_model'))
     encoder.save(os.path.join(paths.path2Models, 'Encoder_model'))

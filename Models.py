@@ -1,10 +1,21 @@
+import tensorflow as tf
+physical_devices = tf.config.list_physical_devices('GPU')
+tf.config.experimental.set_memory_growth(physical_devices[0], enable=True)
+
 import tensorflow.keras
 import numpy as np
+
 
 from tensorflow.keras.models import Sequential, Model, load_model
 from tensorflow.keras.layers import Input, Dense, InputLayer, Flatten, Reshape, Layer, Conv2D, Conv2DTranspose, MaxPooling2D, UpSampling2D
 from tensorflow.keras import backend as K
 
+from AE import Sampling
+from AE import VAE
+
+
+from tensorflow import keras
+from tensorflow.keras import layers
 # class BinningLayer(Layer):
 # 	self.output_dim = output_dim
 # 	super(BinningLayer, self).__init__(**kwargs)
@@ -131,79 +142,38 @@ class Autoencoder():
 	def __dense_auditory(self):
 		pass
 
-	# def __conv_vae(self):
-	# 	print(self.input_shape)
+	def __conv_vae(self):
+		latent_dim = 2
 
-	# 	encoder = Sequential()
-	# 	encoder.add(InputLayer((*self.input_shape, 1)))
-	# 	encoder.add(Conv2D(32, kernel_size=3, strides=(2, 2), activation='relu'))
-	# 	encoder.add(Conv2D(64, kernel_size=3, strides=(2, 2), activation='relu'))
-	# 	encoder.add(Flatten())
-	# 	encoder.add(Dense(self.latent_dim + self.latent_dim))
+		encoder_inputs = Input(shape=(*self.input_shape, 1))
+		x = Conv2D(32, 3, activation="relu", strides=2, padding="same")(encoder_inputs)
+		x = Conv2D(64, 3, activation="relu", strides=2, padding="same")(x)
+		x = Flatten()(x)
+		x = Dense(16, activation="relu")(x)
+		z_mean = Dense(latent_dim, name="z_mean")(x)
+		z_log_var = Dense(latent_dim, name="z_log_var")(x)
+		z = Sampling()([z_mean, z_log_var])
+		encoder = keras.Model(encoder_inputs, [z_mean, z_log_var, z], name="encoder")
+		encoder.summary()
 
-	# 	print(encoder.summary())
+		latent_inputs = keras.Input(shape=(latent_dim,))
+		x = Dense(7 * 7 * 64, activation="relu")(latent_inputs)
+		x = Reshape((7, 7, 64))(x)
+		x = Conv2DTranspose(64, 3, activation="relu", strides=2, padding="same")(x)
+		x = Conv2DTranspose(32, 3, activation="relu", strides=2, padding="same")(x)
+		decoder_outputs = Conv2DTranspose(1, 3, activation="sigmoid", padding="same")(x)
+		decoder = keras.Model(latent_inputs, decoder_outputs, name="decoder")
+		decoder.summary()
 
-	# 	decoder = Sequential()
-	# 	decoder.add(InputLayer(input_shape=(self.latent_dim,)))
-	# 	decoder.add(Dense(units=7*7*32, activation='relu'))
-	# 	decoder.add(Reshape(target_shape=(7, 7, 32)))
-	# 	decoder.add(Conv2DTranspose(64, kernel_size=3, strides=2, padding='same', activation='relu'))
-	# 	decoder.add(Conv2DTranspose(32, kernel_size=3, strides=2, padding='same', activation='relu'))
-	# 	decoder.add(Conv2DTranspose(1, kernel_size=3, strides=2, padding='same'))
-
-
-	# 	@tf.function
-	# 	def sample(self, eps=None):
-	# 		if eps is None:
-	# 			eps = tf.random.normal(shape=(100, self.latent_dim))
-	# 			return self.decode(eps, apply_sigmoid=True)
-
-	# 	def encode(self, x):
-	# 		mean, logvar = tf.split(self.encoder(x), num_or_size_splits=2, axis=1)
-	# 		return mean, logvar
-
-	# 	def reparameterize(self, mean, logvar):
-	# 		eps = tf.random.normal(shape=mean.shape)
-	# 		return eps * tf.exp(logvar * .5) + mean
-
-	# 	def decode(self, z, apply_sigmoid=False):
-	# 		logits = self.decoder(z)
-	# 		if apply_sigmoid:
-	# 			probs = tf.sigmoid(logits)
-	# 			return probs
-	# 		return logits
-
-	# 	optimizer = tf.keras.optimizers.Adam(1e-4)
+		(x_train, _), (x_test, _) = keras.datasets.mnist.load_data()
 
 
-	# 	def log_normal_pdf(sample, mean, logvar, raxis=1):
-	# 	  log2pi = tf.math.log(2. * np.pi)
-	# 	  return tf.reduce_sum(
-	# 	      -.5 * ((sample - mean) ** 2. * tf.exp(-logvar) + logvar + log2pi),
-	# 	      axis=raxis)
+		# mnist_digits = np.concatenate([x_train, x_test], axis=0)
 
-
-	# 	def compute_loss(model, x):
-	# 	  mean, logvar = model.encode(x)
-	# 	  z = model.reparameterize(mean, logvar)
-	# 	  x_logit = model.decode(z)
-	# 	  cross_ent = tf.nn.sigmoid_cross_entropy_with_logits(logits=x_logit, labels=x)
-	# 	  logpx_z = -tf.reduce_sum(cross_ent, axis=[1, 2, 3])
-	# 	  logpz = log_normal_pdf(z, 0., 0.)
-	# 	  logqz_x = log_normal_pdf(z, mean, logvar)
-	# 	  return -tf.reduce_mean(logpx_z + logpz - logqz_x)
-
-
-	# 	@tf.function
-	# 	def train_step(model, x, optimizer):
-	# 	  """Executes one training step and returns the loss.
-
-	# 	  This function computes the loss and gradients, and uses the latter to
-	# 	  update the model's parameters.
-	# 	  """
-	# 	  with tf.GradientTape() as tape:
-	# 	    loss = compute_loss(model, x)
-	# 	  gradients = tape.gradient(loss, model.trainable_variables)
-	# 	  optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-
+		mnist_digits = x_train
+		mnist_digits = np.expand_dims(mnist_digits, -1).astype("float32") / 255
+		vae = VAE(encoder, decoder)
+		vae.compile(optimizer=keras.optimizers.Adam())
+		print(mnist_digits.shape)
+		vae.fit(mnist_digits, epochs=30, batch_size=128)
 

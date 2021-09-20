@@ -1,5 +1,8 @@
 import numpy as np
 import tensorflow as tf
+physical_devices = tf.config.list_physical_devices('GPU')
+tf.config.experimental.set_memory_growth(physical_devices[0], enable=True)
+
 from tensorflow import keras
 from tensorflow.keras import layers
 
@@ -13,29 +16,6 @@ class Sampling(layers.Layer):
         dim = tf.shape(z_mean)[1]
         epsilon = tf.keras.backend.random_normal(shape=(batch, dim))
         return z_mean + tf.exp(0.5 * z_log_var) * epsilon
-
-latent_dim = 2
-
-encoder_inputs = keras.Input(shape=(28, 28, 1))
-x = layers.Conv2D(32, 3, activation="relu", strides=2, padding="same")(encoder_inputs)
-x = layers.Conv2D(64, 3, activation="relu", strides=2, padding="same")(x)
-x = layers.Flatten()(x)
-x = layers.Dense(16, activation="relu")(x)
-z_mean = layers.Dense(latent_dim, name="z_mean")(x)
-z_log_var = layers.Dense(latent_dim, name="z_log_var")(x)
-z = Sampling()([z_mean, z_log_var])
-encoder = keras.Model(encoder_inputs, [z_mean, z_log_var, z], name="encoder")
-encoder.summary()
-
-latent_inputs = keras.Input(shape=(latent_dim,))
-x = layers.Dense(7 * 7 * 64, activation="relu")(latent_inputs)
-x = layers.Reshape((7, 7, 64))(x)
-x = layers.Conv2DTranspose(64, 3, activation="relu", strides=2, padding="same")(x)
-x = layers.Conv2DTranspose(32, 3, activation="relu", strides=2, padding="same")(x)
-decoder_outputs = layers.Conv2DTranspose(1, 3, activation="sigmoid", padding="same")(x)
-decoder = keras.Model(latent_inputs, decoder_outputs, name="decoder")
-decoder.summary()
-
 
 class VAE(keras.Model):
     def __init__(self, encoder, decoder, **kwargs):
@@ -79,10 +59,44 @@ class VAE(keras.Model):
             "kl_loss": self.kl_loss_tracker.result(),
         }
 
-(x_train, _), (x_test, _) = keras.datasets.mnist.load_data()
-mnist_digits = np.concatenate([x_train, x_test], axis=0)
-mnist_digits = np.expand_dims(mnist_digits, -1).astype("float32") / 255
+
+latent_dim = 36
+
+encoder_inputs = keras.Input(shape=(512, 124, 1))
+x = layers.Conv2D(32, 3, activation="relu", strides=2, padding="same")(encoder_inputs)
+x = layers.Conv2D(64, 3, activation="relu", strides=2, padding="same")(x)
+x = layers.Flatten()(x)
+x = layers.Dense(64, activation="relu")(x)
+z_mean = layers.Dense(latent_dim, name="z_mean")(x)
+z_log_var = layers.Dense(latent_dim, name="z_log_var")(x)
+z = Sampling()([z_mean, z_log_var])
+encoder = keras.Model(encoder_inputs, [z_mean, z_log_var, z], name="encoder")
+encoder.summary()
+
+latent_inputs = keras.Input(shape=(latent_dim,))
+x = layers.Dense(128 * 31 * 64, activation="relu")(latent_inputs)
+x = layers.Reshape((128, 31, 64))(x)
+x = layers.Conv2DTranspose(64, 3, activation="relu", strides=2, padding="same")(x)
+x = layers.Conv2DTranspose(32, 3, activation="relu", strides=2, padding="same")(x)
+decoder_outputs = layers.Conv2DTranspose(1, 3, activation="sigmoid", padding="same")(x)
+decoder = keras.Model(latent_inputs, decoder_outputs, name="decoder")
+decoder.summary()
+
+
+
+X_train = np.load(open('dataset_train.pkl', 'rb'), allow_pickle=True)
+    
+# Select the desired portion of the data and shuffle it
+shuffle_mask = np.random.choice(X_train.shape[0], int(10/100 * X_train.shape[0]), replace=False)
+X_train = X_train[shuffle_mask]
+
+if 1: # This to enable fair splitting for convolution
+  X_train = X_train[:, :512, :124]
+  input_shape = (512, 124)
+  print(X_train.shape)
+
+# mnist_digits = np.concatenate([x_train, x_test], axis=0)
 
 vae = VAE(encoder, decoder)
 vae.compile(optimizer=keras.optimizers.Adam())
-vae.fit(mnist_digits, epochs=30, batch_size=128)
+vae.fit(X_train, epochs=30, batch_size=128)
