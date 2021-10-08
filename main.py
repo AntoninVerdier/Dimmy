@@ -19,8 +19,10 @@ from Models import Autoencoder
 from data_gen import DataGenerator, DataGenerator_both, get_generators
 from tensorflow.keras.callbacks import TensorBoard
 
-from AE import Sampling
-from AE import VAE
+import preprocessing as proc
+
+# from AE import Sampling
+# from AE import VAE
 
 
 paths = s.paths()
@@ -59,7 +61,7 @@ if args.train:
     shuffle_mask = np.random.choice(X_train.shape[0], int(args.data_size/100 * X_train.shape[0]), replace=False)
     X_train = X_train[shuffle_mask]
 
-    if args.network == 'conv_simple': # This to enable fair splitting for convolution
+    if args.network: # This to enable fair splitting for convolution
       X_train = X_train[:, :512, :124]
       input_shape = (512, 124)
       print(X_train.shape)
@@ -74,12 +76,12 @@ if args.train:
 
     history = autoencoder.fit(X_train, X_train,
                               epochs=params.epochs, 
-                              batch_size=64)
-                              #callbacks=keras_callbacks)
+                              batch_size=64,
+                              callbacks=keras_callbacks)
 
-    autoencoder.save(os.path.join(paths.path2Models, 'Autoencoder_model'))
-    encoder.save(os.path.join(paths.path2Models, 'Encoder_model'))
-    decoder.save(os.path.join(paths.path2Models, 'Decoder_model'))
+    autoencoder.save(os.path.join(paths.path2Models, 'Autoencoder_model_{}'.format(args.network)))
+    encoder.save(os.path.join(paths.path2Models, 'Encoder_model_{}'.format(args.network)))
+    decoder.save(os.path.join(paths.path2Models, 'Decoder_model_{}'.format(args.network)))
 
     pkl.dump(history.history, open(os.path.join(paths.path2Models, 'model_history.pkl'), 'wb'))
 
@@ -88,10 +90,28 @@ if args.predict:
   autoencoder = load_model(os.path.join(paths.path2Models,'Autoencoder_model'))
   encoder = load_model(os.path.join(paths.path2Models,'Encoder_model'))
   decoder = load_model(os.path.join(paths.path2Models,'Decoder_model'))
+  
+
+  fig, axs = plt.subplots(10, 10, figsize=(20, 20))
+
+  for i, f in enumerate(os.listdir('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio')[:100]):
+    X_test = proc.load_file(os.path.join('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio', f)).reshape(1, 513, 126)
+    X_test = X_test[:, :512, :124]
+    latent_repre = encoder.predict(X_test)
+
+    axs[i//10, i%10].imshow(latent_repre.reshape(10, 10))
+    axs[i//10, i%10].axes.get_xaxis().set_visible(False)
+    axs[i//10, i%10].axes.get_yaxis().set_visible(False)
+
+  plt.tight_layout()
+  plt.show()
+
 
 history = pkl.load(open('Output/model_history.pkl', 'rb'))
 plt.plot(history['loss'])
 plt.savefig('Output/model_history.png')
+
+
 
 # test_generator, phases = get_generators(**params.test_params, test=True)
 

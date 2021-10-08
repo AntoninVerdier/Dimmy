@@ -63,10 +63,10 @@ class VAE(keras.Model):
 latent_dim = 36
 
 encoder_inputs = keras.Input(shape=(512, 124, 1))
-x = layers.Conv2D(32, 3, activation="relu", strides=2, padding="same")(encoder_inputs)
-x = layers.Conv2D(64, 3, activation="relu", strides=2, padding="same")(x)
+x = layers.Conv2D(64, 3, activation="tanh", strides=2, padding="same")(encoder_inputs)
+x = layers.Conv2D(32, 3, activation="tanh", strides=2, padding="same")(x)
 x = layers.Flatten()(x)
-x = layers.Dense(64, activation="relu")(x)
+x = layers.Dense(64, activation="tanh")(x)
 z_mean = layers.Dense(latent_dim, name="z_mean")(x)
 z_log_var = layers.Dense(latent_dim, name="z_log_var")(x)
 z = Sampling()([z_mean, z_log_var])
@@ -74,11 +74,11 @@ encoder = keras.Model(encoder_inputs, [z_mean, z_log_var, z], name="encoder")
 encoder.summary()
 
 latent_inputs = keras.Input(shape=(latent_dim,))
-x = layers.Dense(128 * 31 * 64, activation="relu")(latent_inputs)
+x = layers.Dense(128 * 31 * 64, activation="tanh")(latent_inputs)
 x = layers.Reshape((128, 31, 64))(x)
-x = layers.Conv2DTranspose(64, 3, activation="relu", strides=2, padding="same")(x)
-x = layers.Conv2DTranspose(32, 3, activation="relu", strides=2, padding="same")(x)
-decoder_outputs = layers.Conv2DTranspose(1, 3, activation="sigmoid", padding="same")(x)
+x = layers.Conv2DTranspose(32, 3, activation="tanh", strides=2, padding="same")(x)
+x = layers.Conv2DTranspose(64, 3, activation="tanh", strides=2, padding="same")(x)
+decoder_outputs = layers.Conv2DTranspose(1, 3, activation="tanh", padding="same")(x)
 decoder = keras.Model(latent_inputs, decoder_outputs, name="decoder")
 decoder.summary()
 
@@ -90,13 +90,9 @@ X_train = np.load(open('dataset_train.pkl', 'rb'), allow_pickle=True)
 shuffle_mask = np.random.choice(X_train.shape[0], int(10/100 * X_train.shape[0]), replace=False)
 X_train = X_train[shuffle_mask]
 
-if 1: # This to enable fair splitting for convolution
-  X_train = X_train[:, :512, :124]
-  input_shape = (512, 124)
-  print(X_train.shape)
-
-# mnist_digits = np.concatenate([x_train, x_test], axis=0)
+X_train = np.expand_dims(X_train[:, :512, :124], 3)
+input_shape = (512, 124)
 
 vae = VAE(encoder, decoder)
-vae.compile(optimizer=keras.optimizers.Adam())
-vae.fit(X_train, epochs=30, batch_size=128)
+vae.compile(optimizer=keras.optimizers.Adam(learning_rate=0.00001))
+vae.fit(X_train, epochs=30, batch_size=32)

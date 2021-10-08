@@ -10,8 +10,8 @@ from tensorflow.keras.models import Sequential, Model, load_model
 from tensorflow.keras.layers import Input, Dense, InputLayer, Flatten, Reshape, Layer, Conv2D, Conv2DTranspose, MaxPooling2D, UpSampling2D
 from tensorflow.keras import backend as K
 
-from AE import Sampling
-from AE import VAE
+# from AE import Sampling
+# from AE import VAE
 
 
 from tensorflow import keras
@@ -66,16 +66,16 @@ class Autoencoder():
 		encoder = Sequential()
 		encoder.add(InputLayer(self.input_shape))
 		encoder.add(Flatten())
-		encoder.add(Dense(1024, activation='tanh'))
-		encoder.add(Dense(513, activation='tanh'))
-		encoder.add(Dense(256, activation='tanh'))
+		encoder.add(Dense(512, activation='relu'))
+		encoder.add(Dense(256, activation='relu'))
+		encoder.add(Dense(128, activation='relu'))
 		encoder.add(Dense(self.latent_dim, name='latent_dim'))
 
 		decoder = Sequential()
 		decoder.add(InputLayer((self.latent_dim,)))
-		decoder.add(Dense(256, activation='tanh'))
-		decoder.add(Dense(513, activation='tanh'))
-		decoder.add(Dense(1024, activation='tanh'))
+		decoder.add(Dense(128, activation='relu'))
+		decoder.add(Dense(256, activation='relu'))
+		decoder.add(Dense(512, activation='relu'))
 		decoder.add(Dense(np.prod(self.input_shape)))
 		decoder.add(Reshape(self.input_shape))
 
@@ -83,7 +83,7 @@ class Autoencoder():
 		code = encoder(inp)
 		reconstruction = decoder(code)
 
-		autoencoder = Model(inp, reconstruction, name='conv_simple')
+		autoencoder = Model(inp, reconstruction, name='dense')
 		autoencoder.compile(optimizer='adam', loss='mse')
 		return encoder, decoder, autoencoder
 
@@ -109,7 +109,7 @@ class Autoencoder():
 		reconstruction = decoder(code)
 
 		autoencoder = Model(inp, reconstruction)
-		autoencoder.compile(optimizer='adam', loss='mse')
+		autoencoder.compile(optimizer='sgd', loss='mse')
 
 		return encoder, decoder, autoencoder
 
@@ -133,8 +133,6 @@ class Autoencoder():
 
 		autoencoder = Model(input_img, decoder)
 		autoencoder.compile(optimizer='adam', loss='mse')
-
-		print(autoencoder.summary())
 
 		return encoder, decoder, autoencoder
 

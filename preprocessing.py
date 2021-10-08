@@ -43,6 +43,17 @@ def load_data(folder, cap=None):
 
 	pkl.dump(dataset, open('dataset1.pkl', 'wb'))
 
+def load_file(file):
+	sample, samplerate = librosa.load(file, sr=16000)
+
+	f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
+
+	mag = np.log(1 + np.abs(Zxx)).astype(np.float16)
+	mag = (mag / np.max(mag))*255
+	mag = np.array(mag, dtype=np.uint8)
+
+	return mag
+
 def load_data_array(folder, cap=None):
 	files = os.listdir(folder)
 
@@ -141,7 +152,7 @@ def load_data_to_wl(folder):
 		plt.show()
 
 #test_load_data_array('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio')
-load_data_to_wl('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio')
+#load_data_to_wl('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio')
 
 # if __name__ == '__main__':
 # 	folder = '/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-train/audio'
