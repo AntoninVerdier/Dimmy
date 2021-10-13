@@ -10,6 +10,13 @@ from tensorflow.keras.models import Sequential, Model, load_model
 from tensorflow.keras.layers import Input, Dense, InputLayer, Flatten, Reshape, Layer, Conv2D, Conv2DTranspose, MaxPooling2D, UpSampling2D
 from tensorflow.keras import backend as K
 
+from tensorflow.keras.models import Model, load_model
+from tensorflow.keras.layers import Input, Dense, Layer, InputSpec
+from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
+from tensorflow.keras import regularizers, activations, initializers, constraints, Sequential
+from tensorflow.keras import backend as K
+from tensorflow.keras.constraints import UnitNorm, Constraint
+
 # from AE import Sampling
 # from AE import VAE
 
@@ -32,7 +39,73 @@ from tensorflow.keras import layers
 # 	def compute_output_shape(self, input_shape): 
 # 		return (input_shape[0], self.output_dim)
 
+class DenseTied(Layer):
+    def __init__(self, units,
+                 activation=None,
+                 use_bias=True,
+                 kernel_initializer='glorot_uniform',
+                 bias_initializer='zeros',
+                 kernel_regularizer=None,
+                 bias_regularizer=None,
+                 activity_regularizer=None,
+                 kernel_constraint=None,
+                 bias_constraint=None,
+                 tied_to=None,
+                 **kwargs):
+        self.tied_to = tied_to
+        if 'input_shape' not in kwargs and 'input_dim' in kwargs:
+            kwargs['input_shape'] = (kwargs.pop('input_dim'),)
+        super().__init__(**kwargs)
+        self.units = units
+        self.activation = activations.get(activation)
+        self.use_bias = use_bias
+        self.kernel_initializer = initializers.get(kernel_initializer)
+        self.bias_initializer = initializers.get(bias_initializer)
+        self.kernel_regularizer = regularizers.get(kernel_regularizer)
+        self.bias_regularizer = regularizers.get(bias_regularizer)
+        self.activity_regularizer = regularizers.get(activity_regularizer)
+        self.kernel_constraint = constraints.get(kernel_constraint)
+        self.bias_constraint = constraints.get(bias_constraint)
+        self.input_spec = InputSpec(min_ndim=2)
+        self.supports_masking = True
+                
+    def build(self, input_shape):
+        assert len(input_shape) >= 2
+        input_dim = input_shape[-1]
 
+        if self.tied_to is not None:
+            self.kernel = K.transpose(self.tied_to.kernel)
+            self._non_trainable_weights.append(self.kernel)
+        else:
+            self.kernel = self.add_weight(shape=(input_dim, self.units),
+                                          initializer=self.kernel_initializer,
+                                          name='kernel',
+                                          regularizer=self.kernel_regularizer,
+                                          constraint=self.kernel_constraint)
+        if self.use_bias:
+            self.bias = self.add_weight(shape=(self.units,),
+                                        initializer=self.bias_initializer,
+                                        name='bias',
+                                        regularizer=self.bias_regularizer,
+                                        constraint=self.bias_constraint)
+        else:
+            self.bias = None
+        self.input_spec = InputSpec(min_ndim=2, axes={-1: input_dim})
+        self.built = True
+
+    def compute_output_shape(self, input_shape):
+        assert input_shape and len(input_shape) >= 2
+        output_shape = list(input_shape)
+        output_shape[-1] = self.units
+        return tuple(output_shape)
+
+    def call(self, inputs):
+        output = K.dot(inputs, self.kernel)
+        if self.use_bias:
+            output = K.bias_add(output, self.bias, data_format='channels_last')
+        if self.activation is not None:
+            output = self.activation(output)
+        return output
 
 
 class Autoencoder():
@@ -46,6 +119,8 @@ class Autoencoder():
 	def get_model(self):
 		if self.model == 'dense':
 			return self.__dense()
+		elif self.model == 'dense_tied':
+			return self.__dense_tied()
 		elif self.model == 'densebin':
 			return self.__dense_with_constraints()
 		elif self.model == 'conv_simple':
@@ -84,6 +159,30 @@ class Autoencoder():
 		reconstruction = decoder(code)
 
 		autoencoder = Model(inp, reconstruction, name='dense')
+		autoencoder.compile(optimizer='adam', loss='mse')
+		return encoder, decoder, autoencoder
+
+	def __dense_tied(self):
+
+		inputs = Input(self.input_shape)
+		flatten_vec = Flatten()(inputs)
+		dense_0 = Dense(512, activation='relu', name='dense_0')(flatten_vec)
+		dense_1 = Dense(256, activation='relu', name='dense_1')(dense_0)
+		dense_2 = Dense(128, activation='relu', name='dense_2')(dense_1)
+		latent_dim = Dense(self.latent_dim, name='latent_dim')(dense_2)
+
+		
+		inputs_dec = Input((self.latent_dim,))
+		dense_dec_0 = DenseTied(128, activation='relu', tied_to=dense_2)(inputs_dec)
+		dense_dec_1 = DenseTied(256, activation='relu', tied_to=dense_1)(dense_dec_0)
+		dense_dec_2 = DenseTied(512, activation='relu', tied_to=dense_0)(dense_dec_1)
+		dense_format = Dense(np.prod(self.input_shape))(dense_dec_2)
+		reconstruction = Reshape(self.input_shape)(dense_format)
+
+		encoder = keras.Model(inputs=inputs, outputs=latent_dim)
+		decoder = keras.Model(inputs=inputs_dec, outputs=reconstruction)
+
+		autoencoder = Model(inputs, reconstruction, name='dense')
 		autoencoder.compile(optimizer='adam', loss='mse')
 		return encoder, decoder, autoencoder
 

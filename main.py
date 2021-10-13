@@ -76,8 +76,8 @@ if args.train:
 
     history = autoencoder.fit(X_train, X_train,
                               epochs=params.epochs, 
-                              batch_size=64,
-                              callbacks=keras_callbacks)
+                              batch_size=64,)
+                              #callbacks=keras_callbacks)
 
     autoencoder.save(os.path.join(paths.path2Models, 'Autoencoder_model_{}'.format(args.network)))
     encoder.save(os.path.join(paths.path2Models, 'Encoder_model_{}'.format(args.network)))
