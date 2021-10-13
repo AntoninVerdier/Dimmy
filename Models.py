@@ -74,7 +74,7 @@ class DenseTied(Layer):
         input_dim = input_shape[-1]
 
         if self.tied_to is not None:
-            self.kernel = K.transpose(self.tied_to.kernel)
+            self.kernel = K.transpose(self.tied_to.W)
             self._non_trainable_weights.append(self.kernel)
         else:
             self.kernel = self.add_weight(shape=(input_dim, self.units),
