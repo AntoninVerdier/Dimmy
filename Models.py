@@ -39,6 +39,22 @@ from tensorflow.keras import layers
 # 	def compute_output_shape(self, input_shape): 
 # 		return (input_shape[0], self.output_dim)
 
+class MaxNeuronesConstraint(Constraint):
+	def __init__(self, max_n):
+		self.max_n = max_n
+
+	def filter_out_less_active_neurons(self, w):
+		active_neurons = np.argsort(w)[-self.max_n:]
+		print(w.shape)
+		new_w = np.array([j if i in active_neurons else 0 for i, j in enumerate(K.eval(w).flatten())])
+		w.assign(new_w.reshape(w.shape[0], w.shape[1]))
+
+		return w
+
+	def __call__(self, w):
+		return self.filter_out_less_active_neurons(w)
+
+
 class DenseTied(Layer):
     def __init__(self, units,
                  activation=None,
@@ -74,7 +90,7 @@ class DenseTied(Layer):
         input_dim = input_shape[-1]
 
         if self.tied_to is not None:
-            self.kernel = K.transpose(self.tied_to.W)
+            self.kernel = K.transpose(self.tied_to.kernel)
             self._non_trainable_weights.append(self.kernel)
         else:
             self.kernel = self.add_weight(shape=(input_dim, self.units),
@@ -144,7 +160,7 @@ class Autoencoder():
 		encoder.add(Dense(512, activation='relu'))
 		encoder.add(Dense(256, activation='relu'))
 		encoder.add(Dense(128, activation='relu'))
-		encoder.add(Dense(self.latent_dim, name='latent_dim'))
+		encoder.add(Dense(self.latent_dim, name='latent_dim', kernel_constraint=MaxNeuronesConstraint(10)))
 
 		decoder = Sequential()
 		decoder.add(InputLayer((self.latent_dim,)))
@@ -164,13 +180,22 @@ class Autoencoder():
 
 	def __dense_tied(self):
 
-		inputs = Input(self.input_shape)
-		flatten_vec = Flatten()(inputs)
-		dense_0 = Dense(512, activation='relu', name='dense_0')(flatten_vec)
-		dense_1 = Dense(256, activation='relu', name='dense_1')(dense_0)
-		dense_2 = Dense(128, activation='relu', name='dense_2')(dense_1)
-		latent_dim = Dense(self.latent_dim, name='latent_dim')(dense_2)
+		inputs = Input((1, 128))
+		
+		dense_0 = Dense(512, activation='relu', name='dense_0')
+		dense_1 = Dense(256, activation='relu', name='dense_1')
+		dense_2 = Dense(128, activation='relu', name='dense_2')
+		latent_dim = Dense(self.latent_dim, name='latent_dim')
 
+		x = Flatten()(inputs)
+		x = dense_0(x)
+		x = dense_1(x)
+		output = dense_2(x)
+		# output = latent_dim(x)
+
+		encoder = keras.Model(inputs=inputs, outputs=output)
+
+		print(encoder.summary())
 		
 		inputs_dec = Input((self.latent_dim,))
 		dense_dec_0 = DenseTied(128, activation='relu', tied_to=dense_2)(inputs_dec)
@@ -179,7 +204,6 @@ class Autoencoder():
 		dense_format = Dense(np.prod(self.input_shape))(dense_dec_2)
 		reconstruction = Reshape(self.input_shape)(dense_format)
 
-		encoder = keras.Model(inputs=inputs, outputs=latent_dim)
 		decoder = keras.Model(inputs=inputs_dec, outputs=reconstruction)
 
 		autoencoder = Model(inputs, reconstruction, name='dense')
