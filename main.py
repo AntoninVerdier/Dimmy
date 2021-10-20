@@ -79,6 +79,20 @@ if args.train:
                               batch_size=64,)
                               #callbacks=keras_callbacks)
 
+    # fig, axs = plt.subplots(10, 10, figsize=(20, 20))
+
+    # for i, f in enumerate(os.listdir('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio')[:100]):
+    #     X_test = proc.load_file(os.path.join('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio', f)).reshape(1, 513, 126)
+    #     X_test = X_test[:, :512, :124]
+    #     latent_repre = encoder.predict(X_test)
+
+    #     axs[i//10, i%10].imshow(latent_repre.reshape(10, 10))
+    #     axs[i//10, i%10].axes.get_xaxis().set_visible(False)
+    #     axs[i//10, i%10].axes.get_yaxis().set_visible(False)
+
+    # plt.tight_layout()
+    # plt.show()
+
     autoencoder.save(os.path.join(paths.path2Models, 'Autoencoder_model_{}'.format(args.network)))
     encoder.save(os.path.join(paths.path2Models, 'Encoder_model_{}'.format(args.network)))
     decoder.save(os.path.join(paths.path2Models, 'Decoder_model_{}'.format(args.network)))

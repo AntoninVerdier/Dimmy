@@ -191,9 +191,16 @@ class DenseMax(Layer):
         print(tf.shape(sorted_activity))
         filter_bool = tnp.greater(output, sorted_activity)
         output = tnp.multiply(output, filter_bool)
- 
+        print(output)
 
         return output
+
+    def get_config(self):
+        base_config = super(DenseMax, self).get_config()
+        base_config['max_n'] = self.max_n
+ 
+
+        return base_config
 
 class Autoencoder():
     # This class should return the required autoencoder architecture
