@@ -187,6 +187,7 @@ class DenseMax(Layer):
         if self.activation is not None:
             output = self.activation(output)
 
+        # Maybe useful to store filter in object to study evolution after
         sorted_activity = tnp.argsort(output)[self.max_n]
         print(tf.shape(sorted_activity))
         filter_bool = tnp.greater(output, sorted_activity)
