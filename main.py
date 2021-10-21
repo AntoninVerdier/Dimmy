@@ -1,5 +1,6 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
 import argparse
 import pickle as pkl
 import numpy as np
@@ -23,7 +24,6 @@ import preprocessing as proc
 
 # from AE import Sampling
 # from AE import VAE
-
 
 paths = s.paths()
 params = s.params()
@@ -79,19 +79,19 @@ if args.train:
                               batch_size=64,)
                               #callbacks=keras_callbacks)
 
-    # fig, axs = plt.subplots(10, 10, figsize=(20, 20))
+    fig, axs = plt.subplots(10, 10, figsize=(20, 20))
 
-    # for i, f in enumerate(os.listdir('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio')[:100]):
-    #     X_test = proc.load_file(os.path.join('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio', f)).reshape(1, 513, 126)
-    #     X_test = X_test[:, :512, :124]
-    #     latent_repre = encoder.predict(X_test)
+    for i, f in enumerate(os.listdir('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio')[:100]):
+        X_test = proc.load_file(os.path.join('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio', f)).reshape(1, 513, 126)
+        X_test = X_test[:, :512, :124]
+        latent_repre = encoder(X_test)
 
-    #     axs[i//10, i%10].imshow(latent_repre.reshape(10, 10))
-    #     axs[i//10, i%10].axes.get_xaxis().set_visible(False)
-    #     axs[i//10, i%10].axes.get_yaxis().set_visible(False)
+        axs[i//10, i%10].imshow(latent_repre.reshape(10, 10))
+        axs[i//10, i%10].axes.get_xaxis().set_visible(False)
+        axs[i//10, i%10].axes.get_yaxis().set_visible(False)
 
-    # plt.tight_layout()
-    # plt.show()
+    plt.tight_layout()
+    plt.show()
 
     autoencoder.save(os.path.join(paths.path2Models, 'Autoencoder_model_{}'.format(args.network)))
     encoder.save(os.path.join(paths.path2Models, 'Encoder_model_{}'.format(args.network)))
@@ -101,9 +101,9 @@ if args.train:
 
 if args.predict:
 
-  autoencoder = load_model(os.path.join(paths.path2Models,'Autoencoder_model'))
-  encoder = load_model(os.path.join(paths.path2Models,'Encoder_model'))
-  decoder = load_model(os.path.join(paths.path2Models,'Decoder_model'))
+  autoencoder = load_model(os.path.join(paths.path2Models,'Autoencoder_model_{}'.format(args.network)))
+  encoder = load_model(os.path.join(paths.path2Models,'Encoder_model_{}'.format(args.network)))
+  decoder = load_model(os.path.join(paths.path2Models,'Decoder_model_{}'.format(args.network)))
   
 
   fig, axs = plt.subplots(10, 10, figsize=(20, 20))
@@ -111,7 +111,8 @@ if args.predict:
   for i, f in enumerate(os.listdir('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio')[:100]):
     X_test = proc.load_file(os.path.join('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio', f)).reshape(1, 513, 126)
     X_test = X_test[:, :512, :124]
-    latent_repre = encoder.predict(X_test)
+    print(X_test.shape)
+    latent_repre = encoder(X_test)
 
     axs[i//10, i%10].imshow(latent_repre.reshape(10, 10))
     axs[i//10, i%10].axes.get_xaxis().set_visible(False)

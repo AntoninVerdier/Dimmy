@@ -23,6 +23,12 @@ import tensorflow.experimental.numpy as tnp
 
 from tensorflow import keras
 from tensorflow.keras import layers
+
+from tensorflow.python.ops.numpy_ops import np_config
+np_config.enable_numpy_behavior()
+
+
+
 # class BinningLayer(Layer):
 #   self.output_dim = output_dim
 #   super(BinningLayer, self).__init__(**kwargs)
@@ -188,11 +194,9 @@ class DenseMax(Layer):
             output = self.activation(output)
 
         # Maybe useful to store filter in object to study evolution after
-        sorted_activity = tnp.argsort(output)[self.max_n]
-        print(tf.shape(sorted_activity))
+        sorted_activity = tnp.argsort(tnp.reshape(output, (-1, 1)))[-self.max_n]
         filter_bool = tnp.greater(output, sorted_activity)
         output = tnp.multiply(output, filter_bool)
-        print(output)
 
         return output
 
@@ -248,6 +252,9 @@ class Autoencoder():
         decoder.add(Dense(512, activation='relu'))
         decoder.add(Dense(np.prod(self.input_shape)))
         decoder.add(Reshape(self.input_shape))
+
+        encoder.compile(optimizer='adam', loss='mse')
+        decoder.compile(optimizer='adam', loss='mse')
 
         inp = Input(self.input_shape)
         code = encoder(inp)
