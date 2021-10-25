@@ -194,8 +194,9 @@ class DenseMax(Layer):
             output = self.activation(output)
 
         # Maybe useful to store filter in object to study evolution after
-        sorted_activity = tnp.argsort(tnp.reshape(output, (-1, 1)))[-self.max_n]
-        filter_bool = tnp.greater(output, sorted_activity)
+        sorted_output = tnp.sort(output)
+        threshold_for_each_batch = sorted_output[:, -self.max_n]
+        filter_bool = tnp.transpose(tnp.greater(tnp.transpose(output), threshold_for_each_batch))
         output = tnp.multiply(output, filter_bool)
 
         return output
