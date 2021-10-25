@@ -151,6 +151,12 @@ def load_data_to_wl(folder):
 		plt.axis('auto')
 		plt.show()
 
+def correlation_matrix(projections):
+	""" Projections must be of the form : (n_proj, x, y)"""
+	correlation_matrix = np.corrcoef(np.array([np.matrix.flatten(p) for p in projections]))
+
+	return correlation_matrix
+
 #test_load_data_array('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio')
 #load_data_to_wl('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio')
 

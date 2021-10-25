@@ -1,6 +1,8 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+import natsort as n
+
 import argparse
 import pickle as pkl
 import numpy as np
@@ -76,22 +78,8 @@ if args.train:
 
     history = autoencoder.fit(X_train, X_train,
                               epochs=params.epochs, 
-                              batch_size=64,)
+                              batch_size=128,)
                               #callbacks=keras_callbacks)
-
-    fig, axs = plt.subplots(10, 10, figsize=(20, 20))
-
-    for i, f in enumerate(os.listdir('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio')[:100]):
-        X_test = proc.load_file(os.path.join('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio', f)).reshape(1, 513, 126)
-        X_test = X_test[:, :512, :124]
-        latent_repre = encoder(X_test)
-
-        axs[i//10, i%10].imshow(latent_repre.reshape(10, 10))
-        axs[i//10, i%10].axes.get_xaxis().set_visible(False)
-        axs[i//10, i%10].axes.get_yaxis().set_visible(False)
-
-    plt.tight_layout()
-    plt.show()
 
     autoencoder.save(os.path.join(paths.path2Models, 'Autoencoder_model_{}'.format(args.network)))
     encoder.save(os.path.join(paths.path2Models, 'Encoder_model_{}'.format(args.network)))
@@ -104,25 +92,35 @@ if args.predict:
   autoencoder = load_model(os.path.join(paths.path2Models,'Autoencoder_model_{}'.format(args.network)))
   encoder = load_model(os.path.join(paths.path2Models,'Encoder_model_{}'.format(args.network)))
   decoder = load_model(os.path.join(paths.path2Models,'Decoder_model_{}'.format(args.network)))
-  
 
-  fig, axs = plt.subplots(10, 10, figsize=(20, 20))
+  #fig, axs = plt.subplots(10, 10, figsize=(20, 20))
 
-  for i, f in enumerate(os.listdir('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio')[:100]):
-    X_test = proc.load_file(os.path.join('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio', f)).reshape(1, 513, 126)
+  sounds_to_encode = '/home/pouple/PhD/Code/Sounds_beh/4_sec'
+
+  all_latent = []
+  for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode))):
+    print(f)
+    X_test = proc.load_file(os.path.join(sounds_to_encode, f)).reshape(1, 513, 126)
     X_test = X_test[:, :512, :124]
-    print(X_test.shape)
+
     latent_repre = encoder(X_test)
+    all_latent.append(latent_repre)
 
-    axs[i//10, i%10].imshow(latent_repre.reshape(10, 10))
-    axs[i//10, i%10].axes.get_xaxis().set_visible(False)
-    axs[i//10, i%10].axes.get_yaxis().set_visible(False)
+  #   axs[i//10, i%10].imshow(latent_repre.reshape(10, 10))
+  #   axs[i//10, i%10].axes.get_xaxis().set_visible(False)
+  #   axs[i//10, i%10].axes.get_yaxis().set_visible(False)
 
-  plt.tight_layout()
+  # plt.tight_layout()
+  # plt.show()
+
+  all_latent = np.array(all_latent)
+
+  corr_matrix = proc.correlation_matrix(all_latent)
+  plt.imshow(corr_matrix)
   plt.show()
 
 
-history = pkl.load(open('Output/model_history.pkl', 'rb'))
+history = pkl.load(open(os.path.join(paths.path2Models, 'model_history.pkl'), 'rb'))
 plt.plot(history['loss'])
 plt.savefig('Output/model_history.png')
 
