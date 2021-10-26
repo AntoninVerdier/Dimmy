@@ -76,9 +76,11 @@ if args.train:
     auto = Autoencoder('{net}'.format(net=args.network if args.network else 'dense'), input_shape, params.latent_size)
     encoder, decoder, autoencoder = auto.get_model()
 
+    X_train.reshape(*X_train.shape, 1)
+    
     history = autoencoder.fit(X_train, X_train,
                               epochs=params.epochs, 
-                              batch_size=128,)
+                              batch_size=8,)
                               #callbacks=keras_callbacks)
 
     autoencoder.save(os.path.join(paths.path2Models, 'Autoencoder_model_{}'.format(args.network)))
@@ -95,15 +97,20 @@ if args.predict:
 
   #fig, axs = plt.subplots(10, 10, figsize=(20, 20))
 
-  sounds_to_encode = '/home/pouple/PhD/Code/Sounds_beh/4_sec'
+  sounds_to_encode = '/home/user/Documents/Antonin/Code/Dimmy/Sounds_beh/4_sec'
+  print(n.natsorted(os.listdir(sounds_to_encode)))
 
   all_latent = []
   for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode))):
-    print(f)
     X_test = proc.load_file(os.path.join(sounds_to_encode, f)).reshape(1, 513, 126)
     X_test = X_test[:, :512, :124]
 
     latent_repre = encoder(X_test)
+
+    plt.imshow(latent_repre.reshape(10, 10))
+    plt.tight_layout()
+    plt.savefig(os.path.join(paths.path2Output, '{}png'.format(f[:-3])))
+    plt.close()
     all_latent.append(latent_repre)
 
   #   axs[i//10, i%10].imshow(latent_repre.reshape(10, 10))
@@ -117,6 +124,8 @@ if args.predict:
 
   corr_matrix = proc.correlation_matrix(all_latent)
   plt.imshow(corr_matrix)
+  plt.savefig(os.path.join(paths.path2Output, 'corr_matrix.png'))
+
   plt.show()
 
 

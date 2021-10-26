@@ -325,26 +325,57 @@ class Autoencoder():
 
 
     def __conv_simple(self):
+        encoder = Sequential()
+        encoder.add(InputLayer((*self.input_shape, 1)))
 
-        input_img = Input(shape=(*self.input_shape, 1))
+        encoder.add(Conv2D(256, kernel_size=(5, 5), padding='same', activation='relu'))
+        encoder.add(MaxPooling2D((2, 2), padding="same"))
+        encoder.add(Conv2D(128, kernel_size=(3, 3), padding='same', activation='relu'))
+        encoder.add(MaxPooling2D((2, 2), padding="same"))
+        encoder.add(Flatten())
+        encoder.add(Dense(self.latent_dim, activation='relu'))
 
-        #encoder.add(InputLayer((*self.input_shape, 1)))
-        encoder = Conv2D(64, kernel_size=(3, 3), padding='same', activation='relu')(input_img)
-        encoder = MaxPooling2D((2, 2), padding="same")(encoder)
-        encoder = Conv2D(32, kernel_size=(5, 5), padding='same', activation='relu')(encoder)
-        encoder = MaxPooling2D((2, 2), padding="same")(encoder)
+        decoder = Sequential()
+        decoder.add(InputLayer((100)))
+        decoder.add(Reshape((10, 10, 1)))
+        decoder.add(Conv2DTranspose(128, (3, 3), strides=1, activation="relu", padding="same"))
+        decoder.add(UpSampling2D((2, 2)))
+        decoder.add(Conv2DTranspose(256, (5, 5), strides=1, activation="relu", padding="same"))
+        decoder.add(UpSampling2D((2, 2)))
+        decoder.add(Conv2D(1, (1, 1), activation="sigmoid", padding="same"))
 
-        decoder = Conv2DTranspose(32, (5, 5), strides=1, activation="relu", padding="same")(encoder)
-        decoder = UpSampling2D((2, 2))(decoder)
-        decoder = Conv2DTranspose(64, (3, 3), strides=1, activation="relu", padding="same")(decoder)
-        decoder = UpSampling2D((2, 2))(decoder)
-        decoder = Conv2D(1, (1, 1), activation="sigmoid", padding="same")(decoder)
+        encoder.compile(optimizer='adam', loss='mse')
+        decoder.compile(optimizer='adam', loss='mse')
 
+        inp = Input(self.input_shape)
+        code = encoder(inp)
+        reconstruction = decoder(code)
 
-        autoencoder = Model(input_img, decoder)
+        autoencoder = Model(inp, reconstruction, name='dense')
         autoencoder.compile(optimizer='adam', loss='mse')
-
         return encoder, decoder, autoencoder
+
+
+        # input_img = Input(shape=(*self.input_shape, 1))
+
+        # #encoder.add(InputLayer((*self.input_shape, 1)))
+        # encoder = Conv2D(256, kernel_size=(5, 5), padding='same', activation='relu')(input_img)
+        # encoder = MaxPooling2D((2, 2), padding="same")(encoder)
+        # encoder = Conv2D(128, kernel_size=(3, 3), padding='same', activation='relu')(encoder)
+        # encoder = MaxPooling2D((2, 2), padding="same")(encoder)
+
+        # decoder = Conv2DTranspose(128, (3, 3), strides=1, activation="relu", padding="same")(encoder)
+        # decoder = UpSampling2D((2, 2))(decoder)
+        # decoder = Conv2DTranspose(256, (5, 5), strides=1, activation="relu", padding="same")(decoder)
+        # decoder = UpSampling2D((2, 2))(decoder)
+        # decoder = Conv2D(1, (1, 1), activation="sigmoid", padding="same")(decoder)
+
+
+        # autoencoder = Model(input_img, decoder)
+        # autoencoder.compile(optimizer='adam', loss='mse')
+
+        # print(autoencoder.summary())
+        # return encoder, decoder, autoencoder
 
 
     def __dense_auditory(self):
