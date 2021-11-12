@@ -14,6 +14,7 @@ from sklearn.preprocessing import normalize
 import matplotlib.pyplot as plt
 
 from scipy.io import wavfile
+from skimage.transform import resize
 
 
 
@@ -156,6 +157,21 @@ def correlation_matrix(projections):
 	correlation_matrix = np.corrcoef(np.array([np.matrix.flatten(p) for p in projections]))
 
 	return correlation_matrix
+
+def convert_to_dlp(projection):
+	""" DLP has a resolution of 480 by 300px"""
+	projection = projection.reshape(10, 10)
+	fig, ax = plt.subplots(1, 2)
+	ax[0].imshow(projection)
+
+
+	projection = resize(projection, (300, 300), anti_aliasing=False)
+	projection = np.array([90*[0] + list(p) + 90*[0] for p in projection]).reshape(300, 480)
+	ax[1].imshow(projection, )
+	plt.show()
+	plt.close()
+
+
 
 #test_load_data_array('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio')
 #load_data_to_wl('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio')

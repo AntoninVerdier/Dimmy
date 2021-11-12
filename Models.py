@@ -328,26 +328,27 @@ class Autoencoder():
         encoder = Sequential()
         encoder.add(InputLayer((*self.input_shape, 1)))
 
-        encoder.add(Conv2D(256, kernel_size=(5, 5), padding='same', activation='relu'))
-        encoder.add(MaxPooling2D((2, 2), padding="same"))
-        encoder.add(Conv2D(128, kernel_size=(3, 3), padding='same', activation='relu'))
+        encoder.add(Conv2D(256, kernel_size=(5, 5), padding='same'))
         encoder.add(MaxPooling2D((2, 2), padding="same"))
         encoder.add(Flatten())
         encoder.add(Dense(self.latent_dim, activation='relu'))
 
+        # Add a dense layer after input to scale eup 
         decoder = Sequential()
         decoder.add(InputLayer((100)))
-        decoder.add(Reshape((10, 10, 1)))
-        decoder.add(Conv2DTranspose(128, (3, 3), strides=1, activation="relu", padding="same"))
-        decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2DTranspose(256, (5, 5), strides=1, activation="relu", padding="same"))
+        decoder.add(Dense(256*62))
+        decoder.add(Reshape((256, 62, 1)))
+        decoder.add(Conv2DTranspose(256, (5, 5), strides=1, padding="same"))
         decoder.add(UpSampling2D((2, 2)))
         decoder.add(Conv2D(1, (1, 1), activation="sigmoid", padding="same"))
 
         encoder.compile(optimizer='adam', loss='mse')
         decoder.compile(optimizer='adam', loss='mse')
 
-        inp = Input(self.input_shape)
+        print(encoder.summary())
+        print(decoder.summary())
+
+        inp = Input((*self.input_shape, 1))
         code = encoder(inp)
         reconstruction = decoder(code)
 
