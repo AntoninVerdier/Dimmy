@@ -35,7 +35,7 @@ parser.add_argument('--network', '-n', type=str,
                     help='Choose network type')
 parser.add_argument('--batch_size', '-b', type=int,
                     help='Choose batch size')
-parser.add_argument('--callbacks', '-c', type=int,
+parser.add_argument('--callbacks', '-c', action='store_true',
                     help='Choose if there is a tensorboard callback')
 args = parser.parse_args()
 
