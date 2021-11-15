@@ -33,19 +33,25 @@ parser.add_argument('--predict', '-p', action='store_true',
                     help='')
 parser.add_argument('--network', '-n', type=str,
                     help='Choose network type')
+parser.add_argument('--batch_size', '-b', type=int,
+                    help='Choose batch size')
+parser.add_argument('--callbacks', '-c', type=int,
+                    help='Choose if there is a tensorboard callback')
 args = parser.parse_args()
 
 # Tensorboard for weight and traingin evaluation
-tensorboard = TensorBoard(
-  log_dir='./logs',
-  histogram_freq=1,
-  write_images=True,
-  update_freq=5
-)
 
-keras_callbacks = [
-  tensorboard
-]
+if args.callbacks:
+  tensorboard = TensorBoard(
+    log_dir='./logs',
+    histogram_freq=1,
+    write_images=True,
+    update_freq=5
+  )
+
+  keras_callbacks = [
+    tensorboard
+  ]
 
 
 
@@ -68,11 +74,15 @@ if args.train:
 
     X_train = np.expand_dims(X_train, 3)
     print(X_train.shape)
-    
+
     history = autoencoder.fit(X_train, X_train,
                               epochs=params.epochs, 
-                              batch_size=8,
-                              callbacks=keras_callbacks)
+                              batch_size=args.batch_size if args.batch_size else 32)
+    if args.callbacks:
+      history = autoencoder.fit(X_train, X_train,
+                                epochs=params.epochs, 
+                                batch_size=args.batch_size if args.batch_size else 32,
+                                callbacks=keras_callbacks)
 
     autoencoder.save(os.path.join(paths.path2Models, 'Autoencoder_model_{}'.format(args.network)))
     encoder.save(os.path.join(paths.path2Models, 'Encoder_model_{}'.format(args.network)))
