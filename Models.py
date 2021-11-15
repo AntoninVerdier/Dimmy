@@ -45,20 +45,7 @@ np_config.enable_numpy_behavior()
 #   def compute_output_shape(self, input_shape): 
 #       return (input_shape[0], self.output_dim)
 
-class MaxNeuronesConstraint(Constraint):
-    def __init__(self, max_n):
-        self.max_n = max_n
 
-    def filter_out_less_active_neurons(self, w):
-        active_neurons = np.argsort(w)[-self.max_n:]
-        print(w.shape)
-        new_w = np.array([j if i in active_neurons else 0 for i, j in enumerate(K.eval(w).flatten())])
-        w.assign(new_w.reshape(w.shape[0], w.shape[1]))
-
-        return w
-
-    def __call__(self, w):
-        return self.filter_out_less_active_neurons(w)
 
 
 class DenseTied(Layer):
@@ -297,32 +284,6 @@ class Autoencoder():
         autoencoder.compile(optimizer='adam', loss='mse')
         return encoder, decoder, autoencoder
 
-    def __dense_with_constraints(self):
-
-        encoder = Sequential()
-        encoder.add(InputLayer(self.input_shape))
-        encoder.add(Flatten())
-        encoder.add(Dense(513, activation='tanh'))
-        encoder.add(Dense(256, activation='tanh'))
-        encoder.add(Dense(self.latent_dim))
-        encoder.add(keras.layers.experimental.preprocessing.Discretization(num_bins=10))
-
-        decoder = Sequential()
-        decoder.add(InputLayer((self.latent_dim,)))
-        decoder.add(Dense(256, activation='tanh'))
-        decoder.add(Dense(513, activation='tanh'))
-        decoder.add(Dense(np.prod(self.input_shape)))
-        decoder.add(Reshape(self.input_shape))
-
-        inp = Input(self.input_shape)
-        code = encoder(inp)
-        reconstruction = decoder(code)
-
-        autoencoder = Model(inp, reconstruction)
-        autoencoder.compile(optimizer='sgd', loss='mse')
-
-        return encoder, decoder, autoencoder
-
 
     def __conv_simple(self):
         encoder = Sequential()
@@ -336,10 +297,7 @@ class Autoencoder():
         encoder.add(MaxPooling2D((2, 2), padding="same"))
         encoder.add(Conv2D(16, kernel_size=(3, 3), padding='same', activation='relu'))
         encoder.add(Flatten())
-        encoder.add(Dense(self.latent_dim, activation='relu'))
-
-
-
+        encoder.add(DenseMax(self.latent_dim, activation='relu', max_n=10))
 
         decoder = Sequential()
         decoder.add(InputLayer((100)))
@@ -368,28 +326,6 @@ class Autoencoder():
         autoencoder = Model(inp, reconstruction, name='dense')
         autoencoder.compile(optimizer='adam', loss='mse')
         return encoder, decoder, autoencoder
-
-
-        # input_img = Input(shape=(*self.input_shape, 1))
-
-        # #encoder.add(InputLayer((*self.input_shape, 1)))
-        # encoder = Conv2D(256, kernel_size=(5, 5), padding='same', activation='relu')(input_img)
-        # encoder = MaxPooling2D((2, 2), padding="same")(encoder)
-        # encoder = Conv2D(128, kernel_size=(3, 3), padding='same', activation='relu')(encoder)
-        # encoder = MaxPooling2D((2, 2), padding="same")(encoder)
-
-        # decoder = Conv2DTranspose(128, (3, 3), strides=1, activation="relu", padding="same")(encoder)
-        # decoder = UpSampling2D((2, 2))(decoder)
-        # decoder = Conv2DTranspose(256, (5, 5), strides=1, activation="relu", padding="same")(decoder)
-        # decoder = UpSampling2D((2, 2))(decoder)
-        # decoder = Conv2D(1, (1, 1), activation="sigmoid", padding="same")(decoder)
-
-
-        # autoencoder = Model(input_img, decoder)
-        # autoencoder.compile(optimizer='adam', loss='mse')
-
-        # print(autoencoder.summary())
-        # return encoder, decoder, autoencoder
 
 
     def __dense_auditory(self):

@@ -75,9 +75,6 @@ if args.train:
     X_train = np.expand_dims(X_train, 3)
     print(X_train.shape)
 
-    history = autoencoder.fit(X_train, X_train,
-                              epochs=params.epochs, 
-                              batch_size=args.batch_size if args.batch_size else 32)
     if args.callbacks:
       history = autoencoder.fit(X_train, X_train,
                                 epochs=params.epochs, 
