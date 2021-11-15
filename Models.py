@@ -328,24 +328,37 @@ class Autoencoder():
         encoder = Sequential()
         encoder.add(InputLayer((*self.input_shape, 1)))
 
-        encoder.add(Conv2D(256, kernel_size=(5, 5), padding='same'))
+        encoder.add(Conv2D(128, kernel_size=(3, 3), padding='same', activation='relu'))
         encoder.add(MaxPooling2D((2, 2), padding="same"))
+        encoder.add(Conv2D(64, kernel_size=(3, 3), padding='same', activation='relu'))
+        encoder.add(MaxPooling2D((2, 2), padding="same"))
+        encoder.add(Conv2D(32, kernel_size=(3, 3), padding='same', activation='relu'))
+        encoder.add(MaxPooling2D((2, 2), padding="same"))
+        encoder.add(Conv2D(16, kernel_size=(3, 3), padding='same', activation='relu'))
         encoder.add(Flatten())
         encoder.add(Dense(self.latent_dim, activation='relu'))
 
-        # Add a dense layer after input to scale eup 
+
+
+
         decoder = Sequential()
         decoder.add(InputLayer((100)))
-        decoder.add(Dense(256*62))
-        decoder.add(Reshape((256, 62, 1)))
-        decoder.add(Conv2DTranspose(256, (5, 5), strides=1, padding="same"))
+        decoder.add(Dense(64*14*16))
+        decoder.add(Reshape((64, 14, 16)))
+        decoder.add(Conv2DTranspose(16, (3, 3), strides=1, activation="relu", padding="same"))
         decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2D(1, (1, 1), activation="sigmoid", padding="same"))
+        decoder.add(Conv2DTranspose(32, (3, 3), strides=1, activation="relu", padding="same"))
+        decoder.add(UpSampling2D((2, 2)))
+        decoder.add(Conv2DTranspose(64, (3, 3), strides=1, activation="relu", padding="same"))
+        decoder.add(UpSampling2D((2, 2)))
+        decoder.add(Conv2DTranspose(128, (3, 3), strides=1, activation="relu", padding="same"))
+
+        decoder.add(Conv2D(1, (1, 1), activation="relu", padding="same"))
 
         encoder.compile(optimizer='adam', loss='mse')
+        print(encoder.summary())
         decoder.compile(optimizer='adam', loss='mse')
 
-        print(encoder.summary())
         print(decoder.summary())
 
         inp = Input((*self.input_shape, 1))
