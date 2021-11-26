@@ -56,15 +56,16 @@ if args.callbacks:
 
 
 if args.train:
-    X_train = np.load(open('dataset_train.pkl', 'rb'), allow_pickle=True)
+    X_train = np.load(open('dataset_test_pupcages.pkl', 'rb'), allow_pickle=True)
     
     # Select the desired portion of the data and shuffle it
     shuffle_mask = np.random.choice(X_train.shape[0], int(args.data_size/100 * X_train.shape[0]), replace=False)
     X_train = X_train[shuffle_mask]
+    print(X_train.shape)
 
     if args.network: # This to enable fair splitting for convolution
-      X_train = X_train[:, :512, :112]
-      input_shape = (512, 112)
+      X_train = X_train[:, :512, :int(X_train.shape[2]//4)*4]
+      input_shape = (512, int(X_train.shape[2]//4)*4)
 
     else:
       input_shape = (513, 124)
@@ -99,7 +100,7 @@ if args.predict:
 
   #fig, axs = plt.subplots(10, 10, figsize=(20, 20))
 
-  sounds_to_encode = '/home/user/Documents/Antonin/Code/Dimmy/Sounds_beh/4_sec'
+  sounds_to_encode = '/home/pouple/PhD/Code/Dimmy/Data/4_sec'
   print(n.natsorted(os.listdir(sounds_to_encode)))
 
   all_latent = []

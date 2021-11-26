@@ -60,14 +60,18 @@ def load_data_array(folder, cap=None):
 
 	ids = [f[:-4] for f in files]
 
-	dataset = np.empty((len(ids), 513, 126), dtype=np.float16)
+	dataset = np.empty((len(ids), 513, 189), dtype=np.float16)
 
 	for i, file in enumerate(tqdm(ids)):
-		sample, samplerate = librosa.load(os.path.join(folder, file + '.wav'), sr=16000)
+		sample, samplerate = librosa.load(os.path.join(folder, file + '.wav'), sr=192000)
 
 		f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
+		print(np.abs(Zxx).shape)
 
 		mag = np.log(1 + np.abs(Zxx))
+
+		plt.imshow(mag)
+		plt.show()
 
 		dataset[i, :, :] = mag.astype(np.float16)
 		#dataset[i, :, :] = np.angle(Zxx).astype(np.float16)
@@ -80,13 +84,13 @@ def load_data_array(folder, cap=None):
 
 	print(np.max(dataset), np.min(dataset))
 
-	pkl.dump(dataset, open('dataset_test.pkl', 'wb'))
+	pkl.dump(dataset, open('dataset_test_pupcages.pkl', 'wb'))
 
 
 		
 
 
-# load_data('/home/pouple/PhD/Code/Dimmy/Data/nsynth-train/audio')
+#load_data_array('/home/pouple/PhD/Data/splitted')
 
 def test_load_data_array(folder, cap=None):
 	files = os.listdir(folder)
