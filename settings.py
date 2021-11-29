@@ -12,6 +12,8 @@ class paths():
 		self.path2soundsSJ = os.path.join(self.path2Data, 'nsynth-test/audio')
 		self.path2Models = '/home/user/Documents/Antonin/Code/Dimmy/ModelSave'
 		self.path2Output = '/home/user/Documents/Antonin/Code/Dimmy/OutputFig'
+		self.path2OutputD = '/home/user/Documents/Antonin/Code/Dimmy/Latent'
+
 
 class params():
 	def __init__(self):
@@ -20,7 +22,7 @@ class params():
 							'shuffle': False}
 		self.specshape = self.gen_params['dim']
 		self.latent_size = 100
-		self.epochs = 50
+		self.epochs = 100
 
 		self.test_params = {'dim': (513,126),
 							'batch_size': 1,

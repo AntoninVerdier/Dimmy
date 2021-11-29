@@ -100,21 +100,23 @@ if args.predict:
   #fig, axs = plt.subplots(10, 10, figsize=(20, 20))
 
   sounds_to_encode = '/home/user/Documents/Antonin/Code/Dimmy/Sounds_beh/4_sec'
-  print(n.natsorted(os.listdir(sounds_to_encode)))
 
   all_latent = []
   for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode))):
     X_test = proc.load_file(os.path.join(sounds_to_encode, f)).reshape(1, 513, 126)
-    X_test = X_test[:, :512, :124]
+    X_test = X_test[:, :512, :112]
 
     latent_repre = encoder(X_test)
-    proc.convert_to_dlp(latent_repre)
+    np.save(os.path.join(paths.path2OutputD, '{}.npy'.format(f[:-4])), latent_repre.numpy())
 
-    plt.imshow(latent_repre.reshape(10, 10))
-    plt.tight_layout()
-    plt.savefig(os.path.join(paths.path2Output, '{}png'.format(f[:-3])))
-    plt.close()
-    all_latent.append(latent_repre)
+    # proc.convert_to_dlp(latent_repre)
+
+    # plt.imshow(latent_repre.reshape(10, 10))
+    # plt.tight_layout()
+    # plt.savefig(os.path.join(paths.path2Output, '{}png'.format(f[:-3])))
+    # np.save(latent_repre, os.path.join(paths.path2OutputD, '{}.npy'.format(f[:-3])))
+    # plt.close()
+    # all_latent.append(latent_repre)
 
   #   axs[i//10, i%10].imshow(latent_repre.reshape(10, 10))
   #   axs[i//10, i%10].axes.get_xaxis().set_visible(False)
