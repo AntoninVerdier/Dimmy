@@ -100,12 +100,7 @@ if args.predict:
 
   #fig, axs = plt.subplots(10, 10, figsize=(20, 20))
 
-<<<<<<< HEAD
-  sounds_to_encode = '/home/user/Documents/Antonin/Code/Dimmy/Sounds_beh/4_sec'
-=======
   sounds_to_encode = '/home/pouple/PhD/Code/Dimmy/Data/4_sec'
-  print(n.natsorted(os.listdir(sounds_to_encode)))
->>>>>>> c0371c9e27c350c996d7aa967f67549154a2cc73
 
   all_latent = []
   for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode))):
