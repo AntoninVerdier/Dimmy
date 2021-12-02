@@ -56,25 +56,26 @@ if args.callbacks:
 
 
 if args.train:
-    X_train = np.load(open('dataset_test_pupcages.pkl', 'rb'), allow_pickle=True)
+    X_train = np.load(open('dataset_train.pkl', 'rb'), allow_pickle=True)
     
     # Select the desired portion of the data and shuffle it
     shuffle_mask = np.random.choice(X_train.shape[0], int(args.data_size/100 * X_train.shape[0]), replace=False)
     X_train = X_train[shuffle_mask]
-    print(X_train.shape)
 
     if args.network: # This to enable fair splitting for convolution
-      X_train = X_train[:, :512, :int(X_train.shape[2]//4)*4]
-      input_shape = (512, int(X_train.shape[2]//4)*4)
+      X_train = X_train[:, :512, :120]
+      input_shape = (512, 120)
+      print(X_train.shape, input_shape)
 
     else:
       input_shape = (513, 124)
+
 
     auto = Autoencoder('{net}'.format(net=args.network if args.network else 'dense'), input_shape, params.latent_size)
     encoder, decoder, autoencoder = auto.get_model()
 
     X_train = np.expand_dims(X_train, 3)
-    print(X_train.shape)
+
 
     if args.callbacks:
       history = autoencoder.fit(X_train, X_train,
@@ -100,14 +101,24 @@ if args.predict:
 
   #fig, axs = plt.subplots(10, 10, figsize=(20, 20))
 
-  sounds_to_encode = '/home/pouple/PhD/Code/Dimmy/Data/4_sec'
+  sounds_to_encode = '/home/user/Documents/Antonin/Code/Dimmy/Sounds_beh/4_sec'
 
   all_latent = []
   for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode))):
     X_test = proc.load_file(os.path.join(sounds_to_encode, f)).reshape(1, 513, 126)
-    X_test = X_test[:, :512, :112]
+    X_test = X_test[:, :512, :120]
 
     latent_repre = encoder(X_test)
+    decoded_spec = autoencoder(X_test)
+    
+    fig, axs = plt.subplots(2, 1)
+
+    axs[0].imshow(decoded_spec[0])
+    axs[1].imshow(X_test[0])
+    
+    plt.savefig(os.path.join(paths.path2Output, 'Specs', '{}.png'.format(f[:-4])))
+    plt.close()
+
     np.save(os.path.join(paths.path2OutputD, '{}.npy'.format(f[:-4])), latent_repre.numpy())
 
     # proc.convert_to_dlp(latent_repre)

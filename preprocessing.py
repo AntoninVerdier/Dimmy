@@ -15,7 +15,9 @@ import matplotlib.pyplot as plt
 
 from scipy.io import wavfile
 from skimage.transform import resize
+from scipy.spatial.distance import cosine
 
+# Goal is to clarify this file and make a large function that can generate the dataset with the preprocessing steps required (mel,log-scaled, etc.)
 
 
 def load_data(folder, cap=None):
@@ -161,6 +163,17 @@ def correlation_matrix(projections):
 	correlation_matrix = np.corrcoef(np.array([np.matrix.flatten(p) for p in projections]))
 
 	return correlation_matrix
+
+def eucidian_distance(arr, brr):
+	return np.linalg.norm(arr.flatten()-brr.flatten()) # Should reeturn Euclidian distance between matrices
+
+def corrleation(arr, brr):
+	return np.correlatee(arr.flatten(), brr.flatten)
+
+def cosine_distance(arr, brr):
+	return cosine(arr.flatten(), brr.flatten())
+
+
 
 def convert_to_dlp(projection):
 	""" DLP has a resolution of 480 by 300px"""

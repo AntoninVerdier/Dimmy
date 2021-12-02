@@ -5,7 +5,7 @@ import numpy as np
 
 
 from tensorflow.keras.models import Sequential, Model, load_model
-from tensorflow.keras.layers import Input, Dense, InputLayer, Flatten, Reshape, Layer, Conv2D, Conv2DTranspose, MaxPooling2D, UpSampling2D
+from tensorflow.keras.layers import Input, Dense, InputLayer, Flatten, Reshape, Layer, Conv2D, Conv2DTranspose, MaxPooling2D, UpSampling2D, Discretization
 from tensorflow.keras import backend as K
 
 from tensorflow.keras.models import Model, load_model
@@ -117,6 +117,9 @@ class DenseTied(Layer):
         return output
 
 class DenseMax(Layer):
+    """
+        Custom kera slayer 
+    """
     def __init__(self, units,
                  activation=None,
                  use_bias=True,
@@ -231,7 +234,7 @@ class Autoencoder():
         encoder.add(Dense(512, activation='relu'))
         encoder.add(Dense(256, activation='relu'))
         encoder.add(Dense(128, activation='relu'))
-        encoder.add(DenseMax(self.latent_dim, name='latent_dim', max_n=10))
+        encoder.add(DenseMax(self.latent_dim, name='latent_dim', max_n=10, kernel_constraint=UnitNorm()))
 
         decoder = Sequential()
         decoder.add(InputLayer((self.latent_dim,)))
@@ -297,12 +300,13 @@ class Autoencoder():
         encoder.add(MaxPooling2D((2, 2), padding="same"))
         encoder.add(Conv2D(16, kernel_size=(3, 3), padding='same', activation='relu'))
         encoder.add(Flatten())
-        encoder.add(DenseMax(self.latent_dim, activation='relu', max_n=10))
+        encoder.add(DenseMax(self.latent_dim, activation='relu', max_n=10, kernel_constraint=UnitNorm()))
 
         decoder = Sequential()
         decoder.add(InputLayer((100)))
-        decoder.add(Dense(64*14*16))
-        decoder.add(Reshape((64, 14, 16)))
+        #decoder.add(Discretization(num_bins=10, epsilon=0.01)) # Need to check if binning is good, i.e what is the range of input data
+        decoder.add(Dense(64*15*16))
+        decoder.add(Reshape((64, 15, 16)))
         decoder.add(Conv2DTranspose(16, (3, 3), strides=1, activation="relu", padding="same"))
         decoder.add(UpSampling2D((2, 2)))
         decoder.add(Conv2DTranspose(16, (3, 3), strides=1, activation="relu", padding="same"))
