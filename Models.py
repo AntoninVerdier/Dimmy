@@ -28,25 +28,7 @@ from tensorflow.python.ops.numpy_ops import np_config
 np_config.enable_numpy_behavior()
 
 
-
-# class BinningLayer(Layer):
-#   self.output_dim = output_dim
-#   super(BinningLayer, self).__init__(**kwargs)
-
-#   def build(self, input_shape):
-#       self.kernel = self.add_weight(name='binning',
-#           shape=(input_shape[1], self.output_dim),
-#           initializer='normal', trainable=False)
-#       super(BinningLayer, self).build(input_shape)
-    
-#   def call(self, input_data):
-#       return K.dot(input_data, self.kernel)
-
-#   def compute_output_shape(self, input_shape): 
-#       return (input_shape[0], self.output_dim)
-
-
-
+# Could be useful to implement talos library for gidsearch to run on the weekend
 
 class DenseTied(Layer):
     def __init__(self, units,
@@ -226,33 +208,41 @@ class Autoencoder():
 
         print('Data loaded.')
 
-    def __dense(self):
+    def __dense(self, max_n=10):
 
         encoder = Sequential()
         encoder.add(InputLayer(self.input_shape))
         encoder.add(Flatten())
+        encoder.add(Dense(1024, activation='relu'))
         encoder.add(Dense(512, activation='relu'))
         encoder.add(Dense(256, activation='relu'))
         encoder.add(Dense(128, activation='relu'))
-        encoder.add(DenseMax(self.latent_dim, name='latent_dim', max_n=10, kernel_constraint=UnitNorm()))
+        encoder.add(Dense(128, activation='relu'))
+        encoder.add(DenseMax(self.latent_dim, name='latent_dim', max_n=max_n, kernel_constraint=UnitNorm()))
 
         decoder = Sequential()
         decoder.add(InputLayer((self.latent_dim,)))
         decoder.add(Dense(128, activation='relu'))
+        decoder.add(Dense(128, activation='relu'))
         decoder.add(Dense(256, activation='relu'))
         decoder.add(Dense(512, activation='relu'))
+        decoder.add(Dense(1024, activation='relu'))
+
         decoder.add(Dense(np.prod(self.input_shape)))
         decoder.add(Reshape(self.input_shape))
 
-        encoder.compile(optimizer='adam', loss='mse')
-        decoder.compile(optimizer='adam', loss='mse')
+        opt = keras.optimizers.Adam(learning_rate=0.001)
+
+
+        encoder.compile(optimizer=opt, loss='mse')
+        decoder.compile(optimizer=opt, loss='mse')
 
         inp = Input(self.input_shape)
         code = encoder(inp)
         reconstruction = decoder(code)
 
         autoencoder = Model(inp, reconstruction, name='dense')
-        autoencoder.compile(optimizer='adam', loss='mse')
+        autoencoder.compile(optimizer=opt, loss='mse')
         return encoder, decoder, autoencoder
 
     def __dense_tied(self):
@@ -289,18 +279,28 @@ class Autoencoder():
 
 
     def __conv_simple(self):
+
+        opt = keras.optimizers.Adam(learning_rate=0.001)
+
         encoder = Sequential()
         encoder.add(InputLayer((*self.input_shape, 1)))
 
-        encoder.add(Conv2D(64, kernel_size=(9, 3), padding='same', activation='relu'))
+        encoder.add(Conv2D(64, kernel_size=(9, 41), padding='same', activation='relu'))
         encoder.add(MaxPooling2D((2, 2), padding="same"))
-        encoder.add(Conv2D(32, kernel_size=(3, 3), padding='same', activation='relu'))
+        encoder.add(Conv2D(32, kernel_size=(9, 9), padding='same', activation='relu'))
         encoder.add(MaxPooling2D((2, 2), padding="same"))
         encoder.add(Conv2D(16, kernel_size=(3, 3), padding='same', activation='relu'))
         encoder.add(MaxPooling2D((2, 2), padding="same"))
         encoder.add(Conv2D(16, kernel_size=(3, 3), padding='same', activation='relu'))
         encoder.add(Flatten())
-        encoder.add(DenseMax(self.latent_dim, activation='relu', max_n=10, kernel_constraint=UnitNorm()))
+        encoder.add(DenseMax(self.latent_dim, max_n=20, kernel_constraint=UnitNorm()))
+
+        encoder.compile(optimizer=opt, loss='mse')
+
+
+        for l in encoder.layers :
+            print(l.output_shape)
+
 
         decoder = Sequential()
         decoder.add(InputLayer((100)))
@@ -311,15 +311,15 @@ class Autoencoder():
         decoder.add(UpSampling2D((2, 2)))
         decoder.add(Conv2DTranspose(16, (3, 3), strides=1, activation="relu", padding="same"))
         decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2DTranspose(32, (3, 3), strides=1, activation="relu", padding="same"))
+        decoder.add(Conv2DTranspose(32, (9, 9), strides=1, activation="relu", padding="same"))
         decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2DTranspose(64, (9, 3), strides=1, activation="relu", padding="same"))
+        decoder.add(Conv2DTranspose(64, (9, 41), strides=1, activation="relu", padding="same"))
 
         decoder.add(Conv2D(1, (1, 1), activation="relu", padding="same"))
 
-        encoder.compile(optimizer='adam', loss='mse')
+
         print(encoder.summary())
-        decoder.compile(optimizer='adam', loss='mse')
+        decoder.compile(optimizer=opt, loss='mse')
 
         print(decoder.summary())
 
@@ -328,7 +328,7 @@ class Autoencoder():
         reconstruction = decoder(code)
 
         autoencoder = Model(inp, reconstruction, name='dense')
-        autoencoder.compile(optimizer='adam', loss='mse')
+        autoencoder.compile(optimizer=opt, loss='mse')
         return encoder, decoder, autoencoder
 
 

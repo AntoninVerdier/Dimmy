@@ -47,9 +47,12 @@ def load_data(folder, cap=None):
 	pkl.dump(dataset, open('dataset1.pkl', 'wb'))
 
 def load_file(file):
-	sample, samplerate = librosa.load(file, sr=16000)
+	sample, samplerate = librosa.load(file, sr=192000)
+	sample = librosa.resample(sample, 192000, 16000)
+	samplerate = 16e3
 
 	f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
+
 
 	mag = np.log(1 + np.abs(Zxx)).astype(np.float16)
 	mag = (mag / np.max(mag))*255
@@ -65,7 +68,8 @@ def load_data_array(folder, cap=None):
 	dataset = np.empty((len(ids), 513, 189), dtype=np.float16)
 
 	for i, file in enumerate(tqdm(ids)):
-		sample, samplerate = librosa.load(os.path.join(folder, file + '.wav'), sr=192000)
+		sample, samplerate = librosa.load(os.path.join(folder, file + '.wav'), sr=16000)
+
 
 		f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
 		print(np.abs(Zxx).shape)
