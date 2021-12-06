@@ -285,15 +285,15 @@ class Autoencoder():
         encoder = Sequential()
         encoder.add(InputLayer((*self.input_shape, 1)))
 
-        encoder.add(Conv2D(64, kernel_size=(9, 41), padding='same', activation='relu'))
+        encoder.add(Conv2D(64, kernel_size=(3, 3), padding='same', activation='relu'))
         encoder.add(MaxPooling2D((2, 2), padding="same"))
-        encoder.add(Conv2D(32, kernel_size=(9, 9), padding='same', activation='relu'))
+        encoder.add(Conv2D(32, kernel_size=(3, 3), padding='same', activation='relu'))
         encoder.add(MaxPooling2D((2, 2), padding="same"))
         encoder.add(Conv2D(16, kernel_size=(3, 3), padding='same', activation='relu'))
         encoder.add(MaxPooling2D((2, 2), padding="same"))
         encoder.add(Conv2D(16, kernel_size=(3, 3), padding='same', activation='relu'))
         encoder.add(Flatten())
-        encoder.add(DenseMax(self.latent_dim, max_n=20, kernel_constraint=UnitNorm()))
+        encoder.add(DenseMax(self.latent_dim, max_n=100, kernel_constraint=UnitNorm()))
 
         encoder.compile(optimizer=opt, loss='mse')
 
@@ -311,9 +311,9 @@ class Autoencoder():
         decoder.add(UpSampling2D((2, 2)))
         decoder.add(Conv2DTranspose(16, (3, 3), strides=1, activation="relu", padding="same"))
         decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2DTranspose(32, (9, 9), strides=1, activation="relu", padding="same"))
+        decoder.add(Conv2DTranspose(32, (3, 3), strides=1, activation="relu", padding="same"))
         decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2DTranspose(64, (9, 41), strides=1, activation="relu", padding="same"))
+        decoder.add(Conv2DTranspose(64, (3, 3), strides=1, activation="relu", padding="same"))
 
         decoder.add(Conv2D(1, (1, 1), activation="relu", padding="same"))
 
