@@ -40,18 +40,17 @@ def load_data_array(folder):
 
 	pkl.dump(dataset, open('dataset_train.pkl', 'wb'))
 
+def load_file(file):
+	sample, samplerate = librosa.load(file, sr=192000)
+	sample = librosa.resample(sample, 192000, 16000)
+	samplerate = 16e3
 
-load_data_array('/home/pouple/PhD/Code/Dimmy/Data/nsynth-train/audio')
-	
+	f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
 
-	# print(np.max(dataset), np.min(dataset))
-	# dataset = np.array(dataset/np.max(dataset), dtype=np.float16)
-	# dataset = dataset * 255
-	# dataset = np.array(dataset, dtype=np.uint8)
+	mag = np.abs(Zxx)
+	mag = np.array(((mag - np.min(mag))/np.max(mag))*255, dtype=np.uint8)
 
-	# print(np.max(dataset), np.min(dataset))
-
-	# pkl.dump(dataset, open('dataset_test.pkl', 'wb'))
+	return mag
 
 def load_data_multi(file):
 
@@ -78,10 +77,9 @@ def corrleation(arr, brr):
 def cosine_distance(arr, brr):
 	return cosine(arr.flatten(), brr.flatten())
 
+if __name__ == '__main__':
+	load_data_array('/home/pouple/PhD/Code/Dimmy/Data/nsynth-train/audio')
 
-
-#test_load_data_array('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio')
-#load_data_to_wl('/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-test/audio')
 
 # if __name__ == '__main__':
 # 	folder = '/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-train/audio'
