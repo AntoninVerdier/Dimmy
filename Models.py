@@ -199,6 +199,8 @@ class Autoencoder():
             return self.__conv_simple()
         elif self.model == 'conv_vae':
             return self.__conv_vae()
+        elif self.model == 'conv_simple_test':
+            return self.__conv_simple_test()
     
     def get_data(self):
         if self.dataset_type == 'log':
@@ -370,3 +372,56 @@ class Autoencoder():
         print(mnist_digits.shape)
         vae.fit(mnist_digits, epochs=30, batch_size=128)
 
+
+    def __conv_simple_test(self):
+
+        opt = keras.optimizers.Adam(learning_rate=0.001)
+
+        encoder = Sequential()
+        encoder.add(InputLayer((*self.input_shape, 1)))
+
+        encoder.add(Conv2D(16, kernel_size=(7, 7), padding='same', activation='relu'))
+        encoder.add(MaxPooling2D((2, 2), padding="same"))
+        encoder.add(Conv2D(16, kernel_size=(7, 7), padding='same', activation='relu'))
+        encoder.add(MaxPooling2D((2, 2), padding="same"))
+        encoder.add(Conv2D(16, kernel_size=(7, 7), padding='same', activation='relu'))
+        encoder.add(MaxPooling2D((2, 2), padding="same"))
+        encoder.add(Conv2D(16, kernel_size=(7, 7), padding='same', activation='relu'))
+        encoder.add(Flatten())
+        encoder.add(DenseMax(self.latent_dim, max_n=100, kernel_constraint=UnitNorm()))
+
+        encoder.compile(optimizer=opt, loss='mse')
+
+
+        for l in encoder.layers :
+            print(l.output_shape)
+
+
+        decoder = Sequential()
+        decoder.add(InputLayer((100)))
+        #decoder.add(Discretization(num_bins=10, epsilon=0.01)) # Need to check if binning is good, i.e what is the range of input data
+        decoder.add(Dense(64*15*16))
+        decoder.add(Reshape((64, 15, 16)))
+        decoder.add(Conv2DTranspose(16, (7, 7), strides=1, activation="relu", padding="same"))
+        decoder.add(UpSampling2D((2, 2)))
+        decoder.add(Conv2DTranspose(16, (7, 7), strides=1, activation="relu", padding="same"))
+        decoder.add(UpSampling2D((2, 2)))
+        decoder.add(Conv2DTranspose(16, (7, 7), strides=1, activation="relu", padding="same"))
+        decoder.add(UpSampling2D((2, 2)))
+        decoder.add(Conv2DTranspose(16, (7, 7), strides=1, activation="relu", padding="same"))
+
+        decoder.add(Conv2D(1, (1, 1), activation="relu", padding="same"))
+
+
+        print(encoder.summary())
+        decoder.compile(optimizer=opt, loss='mse')
+
+        print(decoder.summary())
+
+        inp = Input((*self.input_shape, 1))
+        code = encoder(inp)
+        reconstruction = decoder(code)
+
+        autoencoder = Model(inp, reconstruction, name='dense')
+        autoencoder.compile(optimizer=opt, loss='mse')
+        return encoder, decoder, autoencoder

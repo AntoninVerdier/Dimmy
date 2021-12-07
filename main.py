@@ -1,6 +1,7 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+import matplotlib
 import argparse
 import numpy as np
 import natsort as n
@@ -13,6 +14,8 @@ from tensorflow.keras.models import load_model, Model
 
 from rich import print, traceback
 traceback.install()
+
+from sklearn.manifold import TSNE
 
 # from AE import Sampling
 # from AE import VAE
@@ -100,25 +103,43 @@ if args.predict:
   decoder = load_model(os.path.join(paths.path2Models,'Decoder_model_{}'.format(args.network)))
 
   #fig, axs = plt.subplots(10, 10, figsize=(20, 20))
-
-  sounds_to_encode = '/home/user/Documents/Antonin/Code/Dimmy/Sounds_beh/4_sec'
+  cmap = matplotlib.cm.get_cmap('hsv')
+  sounds_to_encode = '/home/anverdie/Documents/Code/Dimmy/Data/4_sec'
   all_latent = []
+  colors = []
   for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode))):
+    print(f)
     X_test = proc.load_file(os.path.join(sounds_to_encode, f)).reshape(1, 513, 126, 1)
     X_test = X_test[:, :512, :120]
 
     latent_repre = encoder(X_test)
-    decoded_spec = autoencoder(X_test)
-    
-    fig, axs = plt.subplots(2, 1)
+    #decoded_spec = autoencoder(X_test)
 
-    axs[0].imshow(decoded_spec[0].T[0])
-    axs[1].imshow(X_test[0].T[0])
-    
-    plt.savefig(os.path.join(paths.path2Output, 'Specs', '{}.png'.format(f[:-4])), dpi=300)
-    plt.close()
+    all_latent.append(latent_repre)
 
-    np.save(os.path.join(paths.path2OutputD, '{}.npy'.format(f[:-4])), latent_repre.numpy())
+    if 'AM_' in f:
+      colors.append(cmap(0.1)) # Orange
+    elif 'AMN_' in f:
+      colors.append(cmap(0.3)) # Vert
+    elif 'PT_' in f:
+      colors.append(cmap(0.7))
+    elif 'Steps_' in f:
+      colors.append(cmap(0.5))
+    elif 'Chirp_' in f:
+      colors.append(cmap(0.5))
+    
+    # fig, axs = plt.subplots(2, 1)
+    
+    # axs[0].imshow(X_test[0].T[0])
+    # axs[1].imshow(decoded_spec[0].T[0])
+    
+    # axs[0].set_title('Sound input')
+    # axs[1].set_title('Retrieved spectrogram')
+
+    # plt.savefig(os.path.join(paths.path2Output, 'Specs', '{}.png'.format(f[:-4])), dpi=300)
+    # plt.close()
+
+    # np.save(os.path.join(paths.path2OutputD, '{}.npy'.format(f[:-4])), latent_repre.numpy())
 
     # proc.convert_to_dlp(latent_repre)
 
@@ -136,7 +157,17 @@ if args.predict:
   # plt.tight_layout()
   # plt.show()
 
-  all_latent = np.array(all_latent)
+  all_latent = np.array(all_latent).reshape(-1, 100)
+  print(all_latent.shape)
+
+  clf = TSNE()
+  Y = clf.fit_transform(all_latent)
+  plt.scatter(Y[:, 0], Y[:, 1], c=colors)
+  plt.savefig('Output/TSNE/tsne.png')
+  plt.show()
+
+
+
 
   corr_matrix = proc.correlation_matrix(all_latent)
   plt.imshow(corr_matrix)
@@ -145,8 +176,8 @@ if args.predict:
   plt.show()
 
 
-history = pkl.load(open(os.path.join(paths.path2Models, 'model_history.pkl'), 'rb'))
-plt.plot(history['loss'])
-plt.savefig('Output/model_history.png')
+# history = pkl.load(open(os.path.join(paths.path2Models, 'model_history.pkl'), 'rb'))
+# plt.plot(history['loss'])
+# plt.savefig('Output/model_history.png')
 
 
