@@ -39,7 +39,8 @@ def load_data_array(folder, mod=None):
 		else:
 			mag = np.abs(Zxx)
 
-		dataset[i, :, :] = np.array(((mag - np.min(mag))/np.max(mag))*255, dtype=np.uint8)
+		#dataset[i, :, :] = np.array(((mag - np.min(mag))/np.max(mag))*255, dtype=np.uint8)
+		dataset[i, :, :] = np.array((mag - np.min(mag))/np.max(mag))
 
 
 	pkl.dump(dataset, open('dataset_train_cnn_log.pkl', 'wb'))
@@ -60,16 +61,6 @@ def load_file(file, mod=None):
 
 	return mag
 
-def load_data_multi(file):
-
-	sample, samplerate = librosa.load(os.path.join(folder, file + '.wav'), sr=16000)
-
-	f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
-
-	mag = np.log(1 + np.abs(Zxx))
-
-	dataset[i, :, :] = mag
-
 def correlation_matrix(projections):
 	""" Projections must be of the form : (n_proj, x, y)"""
 	correlation_matrix = np.corrcoef(np.array([np.matrix.flatten(p) for p in projections]))
@@ -86,15 +77,7 @@ def cosine_distance(arr, brr):
 	return cosine(arr.flatten(), brr.flatten())
 
 if __name__ == '__main__':
-	load_data_array('/home/anverdie/Documents/Code/Dimmy/Data/audio_wav', mod='log')
+	load_data_array('/home/user/Documents/Antonin/Dimmy/audio_wav', mod='log')
 
-
-# if __name__ == '__main__':
-# 	folder = '/home/user/Documents/Antonin/Code/Dimmy/Data/nsynth-train/audio'
-# 	files = os.listdir(folder)
-# 	ids = [f[:-4] for f in files]
-# 	dataset = np.empty((len(ids), 513, 126), dtype=np.float16)
-# 	pool = Pool(processes=24)
-# 	pool.map(load_data_multi, ids)
 
 		
