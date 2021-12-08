@@ -66,12 +66,9 @@ if args.train:
     X_train = X_train[shuffle_mask]
 
     if args.network: # This to enable fair splitting for convolution
-      X_train = X_train[:, :512, :120]
-      input_shape = (512, 120)
+      X_train = X_train[:, :512, :188]
+      input_shape = (512, 188)
       print(X_train.shape, input_shape)
-
-    else:
-      input_shape = (513, 124)
 
 
     auto = Autoencoder('{net}'.format(net=args.network if args.network else 'dense'), input_shape, params.latent_size)
@@ -113,7 +110,7 @@ if args.predict:
     X_test = X_test[:, :512, :120]
 
     latent_repre = encoder(X_test)
-    #decoded_spec = autoencoder(X_test)
+    decoded_spec = autoencoder(X_test)
 
     all_latent.append(latent_repre)
 
@@ -128,18 +125,18 @@ if args.predict:
     elif 'Chirp_' in f:
       colors.append(cmap(0.5))
     
-    # fig, axs = plt.subplots(2, 1)
+    fig, axs = plt.subplots(2, 1)
     
-    # axs[0].imshow(X_test[0].T[0])
-    # axs[1].imshow(decoded_spec[0].T[0])
+    axs[0].imshow(X_test[0].T[0])
+    axs[1].imshow(decoded_spec[0].T[0])
     
-    # axs[0].set_title('Sound input')
-    # axs[1].set_title('Retrieved spectrogram')
+    axs[0].set_title('Sound input')
+    axs[1].set_title('Retrieved spectrogram')
 
-    # plt.savefig(os.path.join(paths.path2Output, 'Specs', '{}.png'.format(f[:-4])), dpi=300)
-    # plt.close()
+    plt.savefig(os.path.join(paths.path2Output, 'Specs', '{}.png'.format(f[:-4])), dpi=300)
+    plt.close()
 
-    # np.save(os.path.join(paths.path2OutputD, '{}.npy'.format(f[:-4])), latent_repre.numpy())
+    np.save(os.path.join(paths.path2OutputD, '{}.npy'.format(f[:-4])), latent_repre.numpy())
 
     # proc.convert_to_dlp(latent_repre)
 
