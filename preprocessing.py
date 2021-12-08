@@ -35,7 +35,7 @@ def load_data_array(folder, mod=None):
 		f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
 
 		if mod == 'log':
-			mag = log(1 + np.abs(Zxx))
+			mag = np.log(1 + np.abs(Zxx))
 		else:
 			mag = np.abs(Zxx)
 
@@ -46,13 +46,13 @@ def load_data_array(folder, mod=None):
 
 def load_file(file, mod=None):
 	sample, samplerate = librosa.load(file, sr=192000)
-	sample = librosa.resample(sample, 192000, 16000)
-	samplerate = 16e3
+	#sample = librosa.resample(sample, 192000, 16000)
+	#samplerate = 16e3
 
 	f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
 	
 	if mod == 'log':
-		mag = log(1 + np.abs(Zxx))
+		mag = np.log(1 + np.abs(Zxx))
 	else:
 		mag = np.abs(Zxx)
 

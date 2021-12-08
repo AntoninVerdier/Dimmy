@@ -101,29 +101,30 @@ if args.predict:
 
   #fig, axs = plt.subplots(10, 10, figsize=(20, 20))
   cmap = matplotlib.cm.get_cmap('hsv')
-  sounds_to_encode = '/home/anverdie/Documents/Code/Dimmy/Data/4_sec'
+  sounds_to_encode = '/home/anverdie/Documents/Code/Dimmy/Data/SoundsHearlight'
   all_latent = []
-  colors = []
+  colors = [cmap(0.1)]*6 + [cmap(0.3)]*24 + [cmap(1)] + [cmap(0.5)]*16 + [cmap(0.7)]*16
+  print(n.natsorted(os.listdir(sounds_to_encode)))
   for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode))):
     print(f)
-    X_test = proc.load_file(os.path.join(sounds_to_encode, f)).reshape(1, 513, 126, 1)
-    X_test = X_test[:, :512, :120]
+    X_test = proc.load_file(os.path.join(sounds_to_encode, f)).reshape(1, 513, 189, 1)
+    X_test = X_test[:, :512, :184]
 
     latent_repre = encoder(X_test)
     decoded_spec = autoencoder(X_test)
 
     all_latent.append(latent_repre)
 
-    if 'AM_' in f:
-      colors.append(cmap(0.1)) # Orange
-    elif 'AMN_' in f:
-      colors.append(cmap(0.3)) # Vert
-    elif 'PT_' in f:
-      colors.append(cmap(0.7))
-    elif 'Steps_' in f:
-      colors.append(cmap(0.5))
-    elif 'Chirp_' in f:
-      colors.append(cmap(0.5))
+    # if 'AM_' in f:
+    #   colors.append(cmap(0.1)) # Orange
+    # elif 'AMN_' in f:
+    #   colors.append(cmap(0.3)) # Vert
+    # elif 'PT_' in f:
+    #   colors.append(cmap(0.7))
+    # elif 'Steps_' in f:
+    #   colors.append(cmap(0.5))
+    # elif 'Chirp_' in f:
+    #   colors.append(cmap(0.5))
     
     fig, axs = plt.subplots(2, 1)
     
@@ -140,11 +141,11 @@ if args.predict:
 
     # proc.convert_to_dlp(latent_repre)
 
-    # plt.imshow(latent_repre.reshape(10, 10))
-    # plt.tight_layout()
-    # plt.savefig(os.path.join(paths.path2Output, '{}png'.format(f[:-3])))
-    # np.save(latent_repre, os.path.join(paths.path2OutputD, '{}.npy'.format(f[:-3])))
-    # plt.close()
+    plt.imshow(latent_repre.reshape(10, 10))
+    plt.tight_layout()
+    plt.savefig(os.path.join(paths.path2Output, '{}png'.format(f[:-3])))
+    #np.save(latent_repre, os.path.join(paths.path2OutputD, '{}.npy'.format(f[:-3])))
+    plt.close()
     # all_latent.append(latent_repre)
 
   #   axs[i//10, i%10].imshow(latent_repre.reshape(10, 10))
@@ -153,6 +154,7 @@ if args.predict:
 
   # plt.tight_layout()
   # plt.show()
+
 
   all_latent = np.array(all_latent).reshape(-1, 100)
   print(all_latent.shape)
