@@ -59,15 +59,15 @@ if args.callbacks:
 
 
 if args.train:
-    X_train = np.load(open('dataset_train.pkl', 'rb'), allow_pickle=True)
+    X_train = np.load(open('dataset_multi_cnn_noise_log.pkl', 'rb'), allow_pickle=True)
     
     # Select the desired portion of the data and shuffle it
     shuffle_mask = np.random.choice(X_train.shape[0], int(args.data_size/100 * X_train.shape[0]), replace=False)
     X_train = X_train[shuffle_mask]
 
     if args.network: # This to enable fair splitting for convolution
-      X_train = X_train[:, :512, :188]
-      input_shape = (512, 188)
+      X_train = X_train[:, :512, :184] / 255
+      input_shape = (512, 184)
       print(X_train.shape, input_shape)
 
 
