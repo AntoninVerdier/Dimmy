@@ -49,8 +49,8 @@ def load_file(file, mod=None):
 	sample, samplerate = librosa.load(file, sr=192000)
 	#sample = librosa.resample(sample, 192000, 16000)
 	#samplerate = 16e3
-
 	f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
+
 
 	if mod == 'log':
 		mag = np.log(1 + np.abs(Zxx))
@@ -63,9 +63,9 @@ def load_file(file, mod=None):
 
 def load_unique_file(arg, mod=None):
 	path, mod = arg
-	sample, samplerate = librosa.load(os.path.join(path), sr=400000)
-	sample = librosa.resample(sample, samplerate, 192000)
-	samplerate = 192e3
+	sample, samplerate = librosa.load(os.path.join(path), sr=192000)
+	# sample = librosa.resample(sample, samplerate, 192000)
+	# samplerate = 192e3
 
 	f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
 
@@ -110,7 +110,7 @@ def cosine_distance(arr, brr):
 	return cosine(arr.flatten(), brr.flatten())
 
 if __name__ == '__main__':
-	load_data_array_multi('/home/user/share/gaia/Data/Data_agmentation_CNN_Deepen/AugmentationFinal/Test/raw_audio', mod='log', filename='test_cnn_log.pkl')
+	load_data_array_multi('/home/user/share/gaia/Data/Data_agmentation_CNN_Deepen/AugmentationFinal/Validate/raw_audio', mod='log', filename='validate_cnn_log.pkl')
 
 
 		

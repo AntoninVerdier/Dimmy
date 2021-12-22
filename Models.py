@@ -307,8 +307,8 @@ class Autoencoder():
         decoder = Sequential()
         decoder.add(InputLayer((100)))
         #decoder.add(Discretization(num_bins=10, epsilon=0.01)) # Need to check if binning is good, i.e what is the range of input data
-        decoder.add(Dense(64*15*16))
-        decoder.add(Reshape((64, 15, 16)))
+        decoder.add(Dense(64*70*16))
+        decoder.add(Reshape((64, 70, 16)))
         decoder.add(Conv2DTranspose(16, (3, 3), strides=1, activation="relu", padding="same"))
         decoder.add(UpSampling2D((2, 2)))
         decoder.add(Conv2DTranspose(16, (3, 3), strides=1, activation="relu", padding="same"))
@@ -400,8 +400,8 @@ class Autoencoder():
         decoder = Sequential()
         decoder.add(InputLayer((100)))
         #decoder.add(Discretization(num_bins=10, epsilon=0.01)) # Need to check if binning is good, i.e what is the range of input data
-        decoder.add(Dense(64*15*16))
-        decoder.add(Reshape((64, 15, 16)))
+        decoder.add(Dense(64*70*16))
+        decoder.add(Reshape((64, 70, 16)))
         decoder.add(Conv2DTranspose(16, (7, 7), strides=1, activation="relu", padding="same"))
         decoder.add(UpSampling2D((2, 2)))
         decoder.add(Conv2DTranspose(16, (7, 7), strides=1, activation="relu", padding="same"))

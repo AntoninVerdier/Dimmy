@@ -59,7 +59,7 @@ if args.callbacks:
 
 
 if args.train:
-    X_train = np.load(open('test_cnn_log.pkl', 'rb'), allow_pickle=True)
+    X_train = np.load(open('train_cnn_log.pkl', 'rb'), allow_pickle=True)
     
     # Select the desired portion of the data and shuffle it
     shuffle_mask = np.random.choice(X_train.shape[0], int(args.data_size/100 * X_train.shape[0]), replace=False)
@@ -101,15 +101,13 @@ if args.predict:
 
   #fig, axs = plt.subplots(10, 10, figsize=(20, 20))
   cmap = matplotlib.cm.get_cmap('hsv')
-  sounds_to_encode = '/home/user/Documents/Antonin/Dimmy/Data/SoundsHearlight'
+  sounds_to_encode = '/home/user/Documents/Antonin/Dimmy/Data/SoundsHearlight1-5s'
   all_latent = []
   colors = [cmap(0.1)]*6 + [cmap(0.3)]*24 + [cmap(1)] + [cmap(0.5)]*16 + [cmap(0.7)]*16
   for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode))):
     print(f)
-    X_test = proc.load_file(os.path.join(sounds_to_encode, f)).reshape(1, 513, 189, 1)
-    X_test = X_test[:, :512, :184]
-    print(X_test.shape)
-    X_test = np.concatenate((X_test, np.zeros((512, 371))))
+    X_test = proc.load_file(os.path.join(sounds_to_encode, f), mod='log').reshape(1, 513, 564, 1)
+    X_test = X_test[:, :512, :560]
 
 
     latent_repre = encoder(X_test)
