@@ -67,13 +67,13 @@ def load_unique_file(arg, mod=None):
 	samplerate = 192e3
 
 	f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
+	print(Zxx.shape)
 
 	if mod == 'log':
-		mag = np.log(1 + np.abs(Zxx)*np.random.random(size=Zxx.shape)*0.3)
+		mag = np.log(1 + np.abs(Zxx))
 
 	else:
 		mag = np.abs(Zxx)
-		r = np.random.random(size=Zxx.shape)*0.3
 		mag = mag * r
 
 	#dataset[i, :, :] = np.array(((mag - np.min(mag))/np.max(mag))*255, dtype=np.uint8)
@@ -112,7 +112,7 @@ def cosine_distance(arr, brr):
 print('ok de sbarres')
 
 if __name__ == '__main__':
-	load_data_array_multi('/home/pouple/PhD/Code/Dimmy/Data/audio_wav', mod=None, filename='dataset_multi_cnn_noise.pkl')
+	load_data_array_multi('/home/anverdie/share/gaia/Data/Data_agmentation_CNN_Deepen/AugmentationFinal/Test/raw_audio', mod=None, filename='test_multi_cnn.pkl')
 
 
 		
