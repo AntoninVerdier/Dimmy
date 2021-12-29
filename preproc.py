@@ -31,7 +31,6 @@ def load_data_array(folder, mod=None):
 		sample, samplerate = librosa.load(os.path.join(folder, file + '.wav'), sr=400000)
 		sample = librosa.resample(sample, samplerate, 192000)
 		samplerate = 192e3
-
 		f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
 
 		if mod == 'log':
@@ -49,8 +48,8 @@ def load_file(file, mod=None):
 	sample, samplerate = librosa.load(file, sr=192000)
 	#sample = librosa.resample(sample, 192000, 16000)
 	#samplerate = 16e3
-	f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
 
+	f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
 
 	if mod == 'log':
 		mag = np.log(1 + np.abs(Zxx))
@@ -63,17 +62,18 @@ def load_file(file, mod=None):
 
 def load_unique_file(arg, mod=None):
 	path, mod = arg
-	sample, samplerate = librosa.load(os.path.join(path), sr=192000)
-	# sample = librosa.resample(sample, samplerate, 192000)
-	# samplerate = 192e3
+	sample, samplerate = librosa.load(os.path.join(path), sr=400000)
+	sample = librosa.resample(sample, samplerate, 192000)
+	samplerate = 192e3
 
 	f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
 
 	if mod == 'log':
-		mag = np.log(1 + np.abs(Zxx))
+		mag = np.log(1 + np.abs(Zxx)*np.random.random(size=Zxx.shape)*0.3)
 
 	else:
 		mag = np.abs(Zxx)
+		r = np.random.random(size=Zxx.shape)*0.3
 		mag = mag * r
 
 	#dataset[i, :, :] = np.array(((mag - np.min(mag))/np.max(mag))*255, dtype=np.uint8)
@@ -91,7 +91,7 @@ def load_data_array_multi(folder, filename='dataset', mod=None):
 		results = [p.apply_async(load_unique_file, args=(path, )) for path in paths]
 		dataset = [p.get() for p in track(results, description='Computing spectrograms ...')]
 
-	dataset = np.array(dataset, dtype=np.uint8)
+	dataset = np.array(dataset)
 	pkl.dump(dataset, open(filename, 'wb'))
 
 def correlation_matrix(projections):
@@ -100,7 +100,7 @@ def correlation_matrix(projections):
 
 	return correlation_matrix
 
-def eucidian_distance(arr, brr):
+def euclidian_distance(arr, brr):
 	return np.linalg.norm(arr.flatten()-brr.flatten()) # Should reeturn Euclidian distance between matrices
 
 def corrleation(arr, brr):
@@ -109,8 +109,10 @@ def corrleation(arr, brr):
 def cosine_distance(arr, brr):
 	return cosine(arr.flatten(), brr.flatten())
 
+print('ok de sbarres')
+
 if __name__ == '__main__':
-	load_data_array_multi('/home/user/share/gaia/Data/Data_agmentation_CNN_Deepen/AugmentationFinal/Validate/raw_audio', mod='log', filename='validate_cnn_log.pkl')
+	load_data_array_multi('/home/pouple/PhD/Code/Dimmy/Data/audio_wav', mod=None, filename='dataset_multi_cnn_noise.pkl')
 
 
 		

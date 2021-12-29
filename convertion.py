@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 from PIL import Image
 
-import preprocessing as p
+import preproc as p
 import settings as s 
 
 paths = s.paths()

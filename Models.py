@@ -5,7 +5,7 @@ import numpy as np
 
 
 from tensorflow.keras.models import Sequential, Model, load_model
-from tensorflow.keras.layers import Input, Dense, InputLayer, Flatten, Reshape, Layer, Conv2D, Conv2DTranspose, MaxPooling2D, UpSampling2D, Discretization
+from tensorflow.keras.layers import Input, Dense, InputLayer, Flatten, Reshape, Layer, Conv2D, Conv2DTranspose, MaxPooling2D, UpSampling2D, Discretization, LSTM
 from tensorflow.keras import backend as K
 
 from tensorflow.keras.models import Model, load_model
@@ -380,9 +380,9 @@ class Autoencoder():
         encoder = Sequential()
         encoder.add(InputLayer((*self.input_shape, 1)))
 
-        encoder.add(Conv2D(16, kernel_size=(7, 7), padding='same', activation='relu'))
+        encoder.add(Conv2D(64, kernel_size=(7, 7), padding='same', activation='relu'))
         encoder.add(MaxPooling2D((2, 2), padding="same"))
-        encoder.add(Conv2D(16, kernel_size=(7, 7), padding='same', activation='relu'))
+        encoder.add(Conv2D(32, kernel_size=(7, 7), padding='same', activation='relu'))
         encoder.add(MaxPooling2D((2, 2), padding="same"))
         encoder.add(Conv2D(16, kernel_size=(7, 7), padding='same', activation='relu'))
         encoder.add(MaxPooling2D((2, 2), padding="same"))
@@ -406,9 +406,9 @@ class Autoencoder():
         decoder.add(UpSampling2D((2, 2)))
         decoder.add(Conv2DTranspose(16, (7, 7), strides=1, activation="relu", padding="same"))
         decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2DTranspose(16, (7, 7), strides=1, activation="relu", padding="same"))
+        decoder.add(Conv2DTranspose(32, (7, 7), strides=1, activation="relu", padding="same"))
         decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2DTranspose(16, (7, 7), strides=1, activation="relu", padding="same"))
+        decoder.add(Conv2DTranspose(64, (7, 7), strides=1, activation="relu", padding="same"))
 
         decoder.add(Conv2D(1, (1, 1), activation="relu", padding="same"))
 

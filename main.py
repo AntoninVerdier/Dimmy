@@ -1,6 +1,7 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+import datetime
 import matplotlib
 import argparse
 import numpy as np
@@ -19,7 +20,7 @@ from sklearn.manifold import TSNE
 
 # from AE import Sampling
 # from AE import VAE
-import preprocessing as proc
+import preproc as proc
 from Models import Autoencoder
 from data_gen import DataGenerator, DataGenerator_both, get_generators
 import settings as s
@@ -87,11 +88,13 @@ if args.train:
                               epochs=params.epochs, 
                               batch_size=args.batch_size if args.batch_size else 32)
 
-    autoencoder.save(os.path.join(paths.path2Models, 'Autoencoder_model_{}'.format(args.network)))
-    encoder.save(os.path.join(paths.path2Models, 'Encoder_model_{}'.format(args.network)))
-    decoder.save(os.path.join(paths.path2Models, 'Decoder_model_{}'.format(args.network)))
+    ts = datetime.datetime.now().timestamp()
 
-    pkl.dump(history.history, open(os.path.join(paths.path2Models, 'model_history.pkl'), 'wb'))
+    autoencoder.save(os.path.join(paths.path2Models, 'Autoencoder_model_{}_{}'.format(args.network, ts)))
+    encoder.save(os.path.join(paths.path2Models, 'Encoder_model_{}_{}'.format(args.network, ts)))
+    decoder.save(os.path.join(paths.path2Models, 'Decoder_model_{}_{}'.format(args.network, ts)))
+
+    pkl.dump(history.history, open(os.path.join(paths.path2Models, 'model_history_{}.pkl'.format(ts)), 'wb'))
 
 if args.predict:
 
