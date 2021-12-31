@@ -67,7 +67,6 @@ def load_unique_file(arg, mod=None):
 	samplerate = 96e3
 
 	f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
-	print(Zxx.shape)
 
 	if mod == 'log':
 		mag = np.log(1 + np.abs(Zxx))
@@ -109,10 +108,8 @@ def corrleation(arr, brr):
 def cosine_distance(arr, brr):
 	return cosine(arr.flatten(), brr.flatten())
 
-print('ok de sbarres')
-
 if __name__ == '__main__':
-	load_data_array_multi('/home/anverdie/share/gaia/Data/Data_agmentation_CNN_Deepen/AugmentationFinal/Test/raw_audio', mod='log', filename='test_multi_cnn_t.pkl')
+	load_data_array_multi('/home/user/share/gaia/Data/Data_agmentation_CNN_Deepen/AugmentationFinal/Train/raw_audio', mod='log', filename='train_multi_cnn_ts.pkl')
 
 
 		

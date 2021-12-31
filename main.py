@@ -60,15 +60,15 @@ if args.callbacks:
 
 
 if args.train:
-    X_train = np.load(open('train_cnn_log.pkl', 'rb'), allow_pickle=True)
-    
+    X_train = np.load(open('train_multi_cnn_ts.pkl', 'rb'), allow_pickle=True)
+    print(X_train.shape)
     # Select the desired portion of the data and shuffle it
     shuffle_mask = np.random.choice(X_train.shape[0], int(args.data_size/100 * X_train.shape[0]), replace=False)
     X_train = X_train[shuffle_mask]
 
     if args.network: # This to enable fair splitting for convolution
-      X_train = X_train[:, :512, :560] /255
-      input_shape = (512, 560)
+      X_train = X_train[:, :512, :280] /255
+      input_shape = (512, 280)
 
 
 
@@ -88,7 +88,7 @@ if args.train:
                               epochs=params.epochs, 
                               batch_size=args.batch_size if args.batch_size else 32)
 
-    ts = datetime.datetime.now().timestamp()
+    ts = int(datetime.datetime.now().timestamp())
 
     autoencoder.save(os.path.join(paths.path2Models, 'Autoencoder_model_{}_{}'.format(args.network, ts)))
     encoder.save(os.path.join(paths.path2Models, 'Encoder_model_{}_{}'.format(args.network, ts)))
@@ -110,7 +110,7 @@ if args.predict:
   for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode))):
     print(f)
     X_test = proc.load_file(os.path.join(sounds_to_encode, f), mod='log').reshape(1, 513, 564, 1)
-    X_test = X_test[:, :512, :560]
+    X_test = X_test[:, :512, :280]
 
 
     latent_repre = encoder(X_test)
