@@ -3,9 +3,9 @@ import tensorflow as tf
 import tensorflow.keras
 import numpy as np
 
-
+import keras_tuner as kt
 from tensorflow.keras.models import Sequential, Model, load_model
-from tensorflow.keras.layers import Input, Dense, InputLayer, Flatten, Reshape, Layer, Conv2D, Conv2DTranspose, MaxPooling2D, UpSampling2D, Discretization, LSTM
+from tensorflow.keras.layers import Input, Dense, InputLayer, Flatten, Reshape, Layer, Conv2D, Conv2DTranspose, MaxPooling2D, UpSampling2D, LSTM
 from tensorflow.keras import backend as K
 
 from tensorflow.keras.models import Model, load_model
@@ -201,6 +201,9 @@ class Autoencoder():
             return self.__conv_vae()
         elif self.model == 'conv_simple_test':
             return self.__conv_simple_test()
+        elif self.model =='conv_simple_tune':
+            tuner = kt.RandomSearch(self.__conv_simple_tune, objective='val_loss', max_trials=10)
+            return tuner
     
     def get_data(self):
         if self.dataset_type == 'log':
@@ -444,7 +447,7 @@ class Autoencoder():
         model.compile(loss='mae', optimizer='adam')
         model.summary()
 
-    def __conv_simple_tune(self):
+    def __conv_simple_tune(self, hp):
 
         opt = keras.optimizers.Adam(learning_rate=0.0001)
 
@@ -452,17 +455,23 @@ class Autoencoder():
         encoder.add(InputLayer((*self.input_shape, 1)))
 
         encoder.add(Conv2D(
-            filters=hp.Int('encoder_conv_1_filter', min_value=32, max_value=128, step=16),
-            kernel_size=hp.Choice('encoder_kernel_size_1', [3, 5, 7, 9, 11, 13]), padding='same', activation='relu'))
+            filters=hp.Int('encoder_conv_1_filter', min_value=32, max_value=128, step=32),
+            kernel_size=hp.Choice('encoder_kernel_size_1', [3, 5, 7, 9]), padding='same', activation='relu'))
         encoder.add(MaxPooling2D((2, 2), padding="same"))
 
-        encoder.add(Conv2D(32, kernel_size=(5, 5), padding='same', activation='relu'))
+        encoder.add(Conv2D(
+            filters=hp.Int('encoder_conv_2_filter', min_value=16, max_value=64, step=16),
+            kernel_size=hp.Choice('encoder_kernel_size_2', [3, 5, 7]), padding='same', activation='relu'))
         encoder.add(MaxPooling2D((2, 2), padding="same"))
 
-        encoder.add(Conv2D(16, kernel_size=(5, 5), padding='same', activation='relu'))
+        encoder.add(Conv2D(
+            filters=hp.Int('encoder_conv_3_filter', min_value=16, max_value=64, step=16),
+            kernel_size=hp.Choice('encoder_kernel_size_3', [3, 5, 7]), padding='same', activation='relu'))
         encoder.add(MaxPooling2D((2, 2), padding="same"))
 
-        encoder.add(Conv2D(16, kernel_size=(5, 5), padding='same', activation='relu'))
+        encoder.add(Conv2D(
+            filters=hp.Int('encoder_conv_4_filter', min_value=16, max_value=64, step=16),
+            kernel_size=hp.Choice('encoder_kernel_size_4', [3, 5, 7]), padding='same', activation='relu'))
         encoder.add(Flatten())
         encoder.add(DenseMax(self.latent_dim, max_n=20, kernel_constraint=UnitNorm()))
 
@@ -478,13 +487,13 @@ class Autoencoder():
         #decoder.add(Discretization(num_bins=10, epsilon=0.01)) # Need to check if binning is good, i.e what is the range of input data
         decoder.add(Dense(64*10*16))
         decoder.add(Reshape((64, 10, 16)))
-        decoder.add(Conv2DTranspose(16, (5, 5), strides=1, activation="relu", padding="same"))
+        decoder.add(Conv2DTranspose(hp.get('encoder_conv_4_filter'), hp.get('encoder_kernel_size_4'), strides=1, activation="relu", padding="same"))
         decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2DTranspose(16, (5, 5), strides=1, activation="relu", padding="same"))
+        decoder.add(Conv2DTranspose(hp.get('encoder_conv_3_filter'), hp.get('encoder_kernel_size_3'), strides=1, activation="relu", padding="same"))
         decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2DTranspose(32, (5, 5), strides=1, activation="relu", padding="same"))
+        decoder.add(Conv2DTranspose(hp.get('encoder_conv_2_filter'), hp.get('encoder_kernel_size_2'), strides=1, activation="relu", padding="same"))
         decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2DTranspose(64, (5, 5), strides=1, activation="relu", padding="same"))
+        decoder.add(Conv2DTranspose(hp.get('encoder_conv_1_filter'), hp.get('encoder_kernel_size_1'), strides=1, activation="relu", padding="same"))
 
         decoder.add(Conv2D(1, (1, 1), activation="relu", padding="same"))
 
@@ -500,4 +509,4 @@ class Autoencoder():
 
         autoencoder = Model(inp, reconstruction, name='dense')
         autoencoder.compile(optimizer=opt, loss='mse')
-        return encoder, decoder, autoencoder
+        return autoencoder

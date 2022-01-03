@@ -76,9 +76,20 @@ if args.train:
     X_train, X_valid = train_test_split(X_train, test_size=0.2, shuffle=True)
 
     auto = Autoencoder('{net}'.format(net=args.network if args.network else 'dense'), input_shape, params.latent_size)
+
+    if 'tune' in args.network:
+      print('tuning')
+      tuner = auto.get_model()
+      tuner.search(X_train, X_train,
+              validation_data=(X_valid, X_valid),
+              epochs=params.epochs,
+              batch_size=args.batch_size)
+
     encoder, decoder, autoencoder = auto.get_model()
 
     X_train = np.expand_dims(X_train, 3)
+
+
 
 
     if args.callbacks:
