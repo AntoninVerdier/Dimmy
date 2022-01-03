@@ -282,20 +282,20 @@ class Autoencoder():
 
     def __conv_simple(self):
 
-        opt = keras.optimizers.Adam(learning_rate=0.001)
+        opt = keras.optimizers.Adam(learning_rate=0.0001)
 
         encoder = Sequential()
         encoder.add(InputLayer((*self.input_shape, 1)))
 
-        encoder.add(Conv2D(64, kernel_size=(3, 3), padding='same', activation='relu'))
+        encoder.add(Conv2D(64, kernel_size=(5, 5), padding='same', activation='relu'))
         encoder.add(MaxPooling2D((2, 2), padding="same"))
-        encoder.add(Conv2D(32, kernel_size=(3, 3), padding='same', activation='relu'))
+        encoder.add(Conv2D(32, kernel_size=(5, 5), padding='same', activation='relu'))
         encoder.add(MaxPooling2D((2, 2), padding="same"))
-        encoder.add(Conv2D(16, kernel_size=(3, 3), padding='same', activation='relu'))
+        encoder.add(Conv2D(16, kernel_size=(5, 5), padding='same', activation='relu'))
         encoder.add(MaxPooling2D((2, 2), padding="same"))
-        encoder.add(Conv2D(16, kernel_size=(3, 3), padding='same', activation='relu'))
+        encoder.add(Conv2D(16, kernel_size=(5, 5), padding='same', activation='relu'))
         encoder.add(Flatten())
-        encoder.add(DenseMax(self.latent_dim, max_n=100, kernel_constraint=UnitNorm()))
+        encoder.add(DenseMax(self.latent_dim, max_n=20, kernel_constraint=UnitNorm()))
 
         encoder.compile(optimizer=opt, loss='mse')
 
@@ -307,15 +307,15 @@ class Autoencoder():
         decoder = Sequential()
         decoder.add(InputLayer((100)))
         #decoder.add(Discretization(num_bins=10, epsilon=0.01)) # Need to check if binning is good, i.e what is the range of input data
-        decoder.add(Dense(64*70*16))
-        decoder.add(Reshape((64, 70, 16)))
-        decoder.add(Conv2DTranspose(16, (3, 3), strides=1, activation="relu", padding="same"))
+        decoder.add(Dense(64*10*16))
+        decoder.add(Reshape((64, 10, 16)))
+        decoder.add(Conv2DTranspose(16, (5, 5), strides=1, activation="relu", padding="same"))
         decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2DTranspose(16, (3, 3), strides=1, activation="relu", padding="same"))
+        decoder.add(Conv2DTranspose(16, (5, 5), strides=1, activation="relu", padding="same"))
         decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2DTranspose(32, (3, 3), strides=1, activation="relu", padding="same"))
+        decoder.add(Conv2DTranspose(32, (5, 5), strides=1, activation="relu", padding="same"))
         decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2DTranspose(64, (3, 3), strides=1, activation="relu", padding="same"))
+        decoder.add(Conv2DTranspose(64, (5, 5), strides=1, activation="relu", padding="same"))
 
         decoder.add(Conv2D(1, (1, 1), activation="relu", padding="same"))
 
@@ -399,8 +399,8 @@ class Autoencoder():
 
         decoder = Sequential()
         decoder.add(InputLayer((100)))
-        decoder.add(Dense(64*35*16))
-        decoder.add(Reshape((64, 35, 16)))
+        decoder.add(Dense(64*10*16))
+        decoder.add(Reshape((64, 10, 16)))
         decoder.add(Conv2DTranspose(16, (3, 3), strides=1, activation="relu", padding="same"))
         decoder.add(UpSampling2D((2, 2)))
         decoder.add(Conv2DTranspose(16, (5, 5), strides=1, activation="relu", padding="same"))
@@ -408,6 +408,83 @@ class Autoencoder():
         decoder.add(Conv2DTranspose(32, (7, 7), strides=1, activation="relu", padding="same"))
         decoder.add(UpSampling2D((2, 2)))
         decoder.add(Conv2DTranspose(64, (13, 13), strides=1, activation="relu", padding="same"))
+
+        decoder.add(Conv2D(1, (1, 1), activation="relu", padding="same"))
+
+
+        print(encoder.summary())
+        decoder.compile(optimizer=opt, loss='mse')
+
+        print(decoder.summary())
+
+        inp = Input((*self.input_shape, 1))
+        code = encoder(inp)
+        reconstruction = decoder(code)
+
+        autoencoder = Model(inp, reconstruction, name='dense')
+        autoencoder.compile(optimizer=opt, loss='mse')
+        return encoder, decoder, autoencoder
+
+    def lstm(self):
+
+        model = keras.Sequential()
+        model.add(keras.layers.LSTM(
+            units=64,
+            input_shape=(X_train.shape[1], X_train.shape[2])
+        ))
+        model.add(keras.layers.Dropout(rate=0.2))
+        model.add(keras.layers.RepeatVector(n=X_train.shape[1]))
+        model.add(keras.layers.LSTM(units=64, return_sequences=True))
+        model.add(keras.layers.Dropout(rate=0.2))
+        model.add(
+          keras.layers.TimeDistributed(
+            keras.layers.Dense(units=X_train.shape[2])
+          )
+        )
+        model.compile(loss='mae', optimizer='adam')
+        model.summary()
+
+    def __conv_simple_tune(self):
+
+        opt = keras.optimizers.Adam(learning_rate=0.0001)
+
+        encoder = Sequential()
+        encoder.add(InputLayer((*self.input_shape, 1)))
+
+        encoder.add(Conv2D(
+            filters=hp.Int('encoder_conv_1_filter', min_value=32, max_value=128, step=16),
+            kernel_size=hp.Choice('encoder_kernel_size_1', [3, 5, 7, 9, 11, 13]), padding='same', activation='relu'))
+        encoder.add(MaxPooling2D((2, 2), padding="same"))
+
+        encoder.add(Conv2D(32, kernel_size=(5, 5), padding='same', activation='relu'))
+        encoder.add(MaxPooling2D((2, 2), padding="same"))
+
+        encoder.add(Conv2D(16, kernel_size=(5, 5), padding='same', activation='relu'))
+        encoder.add(MaxPooling2D((2, 2), padding="same"))
+
+        encoder.add(Conv2D(16, kernel_size=(5, 5), padding='same', activation='relu'))
+        encoder.add(Flatten())
+        encoder.add(DenseMax(self.latent_dim, max_n=20, kernel_constraint=UnitNorm()))
+
+        encoder.compile(optimizer=opt, loss='mse')
+
+
+        for l in encoder.layers :
+            print(l.output_shape)
+
+
+        decoder = Sequential()
+        decoder.add(InputLayer((100)))
+        #decoder.add(Discretization(num_bins=10, epsilon=0.01)) # Need to check if binning is good, i.e what is the range of input data
+        decoder.add(Dense(64*10*16))
+        decoder.add(Reshape((64, 10, 16)))
+        decoder.add(Conv2DTranspose(16, (5, 5), strides=1, activation="relu", padding="same"))
+        decoder.add(UpSampling2D((2, 2)))
+        decoder.add(Conv2DTranspose(16, (5, 5), strides=1, activation="relu", padding="same"))
+        decoder.add(UpSampling2D((2, 2)))
+        decoder.add(Conv2DTranspose(32, (5, 5), strides=1, activation="relu", padding="same"))
+        decoder.add(UpSampling2D((2, 2)))
+        decoder.add(Conv2DTranspose(64, (5, 5), strides=1, activation="relu", padding="same"))
 
         decoder.add(Conv2D(1, (1, 1), activation="relu", padding="same"))
 

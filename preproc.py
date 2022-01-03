@@ -46,8 +46,8 @@ def load_data_array(folder, mod=None):
 
 def load_file(file, mod=None):
 	sample, samplerate = librosa.load(file, sr=192000)
-	#sample = librosa.resample(sample, 192000, 16000)
-	#samplerate = 16e3
+	sample = librosa.resample(sample, 192000, 96000)
+	samplerate = 96000
 
 	f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
 
@@ -109,7 +109,7 @@ def cosine_distance(arr, brr):
 	return cosine(arr.flatten(), brr.flatten())
 
 if __name__ == '__main__':
-	load_data_array_multi('/home/user/share/gaia/Data/Data_agmentation_CNN_Deepen/AugmentationFinal/Train/raw_audio', mod='log', filename='train_multi_cnn_ts.pkl')
+	load_data_array_multi('/home/pouple/PhD/Code/Dimmy/Data/audio_wav', mod='log', filename='train_no_noise.pkl')
 
 
 		

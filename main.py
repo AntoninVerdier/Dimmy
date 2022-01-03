@@ -13,6 +13,8 @@ import matplotlib.pyplot as plt
 from tensorflow.keras.callbacks import TensorBoard
 from tensorflow.keras.models import load_model, Model
 
+from sklearn.model_selection import train_test_split
+
 from rich import print, traceback
 traceback.install()
 
@@ -60,17 +62,18 @@ if args.callbacks:
 
 
 if args.train:
-    X_train = np.load(open('train_multi_cnn_ts.pkl', 'rb'), allow_pickle=True)
-    print(X_train.shape)
+    X_train = np.load(open('train_no_noise.pkl', 'rb'), allow_pickle=True)
+
     # Select the desired portion of the data and shuffle it
     shuffle_mask = np.random.choice(X_train.shape[0], int(args.data_size/100 * X_train.shape[0]), replace=False)
     X_train = X_train[shuffle_mask]
 
     if args.network: # This to enable fair splitting for convolution
-      X_train = X_train[:, :512, :280] /255
-      input_shape = (512, 280)
+      X_train = X_train[:, :512, :80]
+      input_shape = (512, 80)
 
 
+    X_train, X_valid = train_test_split(X_train, test_size=0.2, shuffle=True)
 
     auto = Autoencoder('{net}'.format(net=args.network if args.network else 'dense'), input_shape, params.latent_size)
     encoder, decoder, autoencoder = auto.get_model()
@@ -80,11 +83,13 @@ if args.train:
 
     if args.callbacks:
       history = autoencoder.fit(X_train, X_train,
+                                validation_data=(X_valid, X_valid),
                                 epochs=params.epochs, 
                                 batch_size=args.batch_size if args.batch_size else 32,
                                 callbacks=keras_callbacks)
     else:
       history = autoencoder.fit(X_train, X_train,
+                              validation_data=(X_valid, X_valid),
                               epochs=params.epochs, 
                               batch_size=args.batch_size if args.batch_size else 32)
 
@@ -104,17 +109,25 @@ if args.predict:
 
   #fig, axs = plt.subplots(10, 10, figsize=(20, 20))
   cmap = matplotlib.cm.get_cmap('hsv')
-  sounds_to_encode = '/home/user/Documents/Antonin/Dimmy/Data/SoundsHearlight1-5s'
+  sounds_to_encode = '/home/pouple/PhD/Code/Dimmy/Data/SoundsHearlight'
   all_latent = []
   colors = [cmap(0.1)]*6 + [cmap(0.3)]*24 + [cmap(1)] + [cmap(0.5)]*16 + [cmap(0.7)]*16
+
+  X_test = [proc.load_file(os.path.join(sounds_to_encode, f), mod='log').reshape(1, 513, 95, 1) for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode)))]
+  X_test = np.array(X_test).reshape(len(X_test), 513, 95, 1)
+  X_test = X_test[:, :512, :80]
+  print(autoencoder.evaluate(X_test, X_test))
+
   for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode))):
     print(f)
-    X_test = proc.load_file(os.path.join(sounds_to_encode, f), mod='log').reshape(1, 513, 564, 1)
-    X_test = X_test[:, :512, :280]
+    X_test = proc.load_file(os.path.join(sounds_to_encode, f), mod='log').reshape(1, 513, 95, 1)
+    X_test = X_test[:, :512, :80]
 
 
     latent_repre = encoder(X_test)
     decoded_spec = autoencoder(X_test)
+
+
 
     all_latent.append(latent_repre)
 
