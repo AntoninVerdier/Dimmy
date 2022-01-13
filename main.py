@@ -62,15 +62,14 @@ if args.callbacks:
 
 
 if args.train:
-    X_train = np.load(open('train_no_noise.pkl', 'rb'), allow_pickle=True)
+    X_train = np.load(open('heardat_test.pkl', 'rb'), allow_pickle=True)
 
     # Select the desired portion of the data and shuffle it
     shuffle_mask = np.random.choice(X_train.shape[0], int(args.data_size/100 * X_train.shape[0]), replace=False)
     X_train = X_train[shuffle_mask]
 
     if args.network: # This to enable fair splitting for convolution
-      X_train = X_train[:, :512, :80]
-      input_shape = (512, 80)
+      input_shape = (256, 64)
 
 
     X_train, X_valid = train_test_split(X_train, test_size=0.2, shuffle=True)
@@ -78,7 +77,6 @@ if args.train:
     auto = Autoencoder('{net}'.format(net=args.network if args.network else 'dense'), input_shape, params.latent_size)
 
     if 'tune' in args.network:
-      print('tuning')
       tuner = auto.get_model()
       tuner.search(X_train, X_train,
               validation_data=(X_valid, X_valid),
@@ -124,15 +122,14 @@ if args.predict:
   all_latent = []
   colors = [cmap(0.1)]*6 + [cmap(0.3)]*24 + [cmap(1)] + [cmap(0.5)]*16 + [cmap(0.7)]*16
 
-  X_test = [proc.load_file(os.path.join(sounds_to_encode, f), mod='log').reshape(1, 513, 95, 1) for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode)))]
-  X_test = np.array(X_test).reshape(len(X_test), 513, 95, 1)
-  X_test = X_test[:, :512, :80]
+  X_test = [proc.load_file(os.path.join(sounds_to_encode, f), mod='log').reshape(1, 256, 64, 1) for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode)))]
+  X_test = np.array(X_test).reshape(len(X_test), 256, 64, 1)
   print(autoencoder.evaluate(X_test, X_test))
 
   for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode))):
     print(f)
-    X_test = proc.load_file(os.path.join(sounds_to_encode, f), mod='log').reshape(1, 513, 95, 1)
-    X_test = X_test[:, :512, :80]
+    X_test = proc.load_file(os.path.join(sounds_to_encode, f), mod='log').reshape(1, 256, 64, 1)
+
 
 
     latent_repre = encoder(X_test)

@@ -310,8 +310,8 @@ class Autoencoder():
         decoder = Sequential()
         decoder.add(InputLayer((100)))
         #decoder.add(Discretization(num_bins=10, epsilon=0.01)) # Need to check if binning is good, i.e what is the range of input data
-        decoder.add(Dense(64*10*16))
-        decoder.add(Reshape((64, 10, 16)))
+        decoder.add(Dense(32*8*16))
+        decoder.add(Reshape((32, 8, 16)))
         decoder.add(Conv2DTranspose(16, (5, 5), strides=1, activation="relu", padding="same"))
         decoder.add(UpSampling2D((2, 2)))
         decoder.add(Conv2DTranspose(16, (5, 5), strides=1, activation="relu", padding="same"))

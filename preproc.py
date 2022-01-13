@@ -46,8 +46,8 @@ def load_data_array(folder, mod=None):
 
 def load_file(file, mod=None):
 	sample, samplerate = librosa.load(file, sr=192000)
-	sample = librosa.resample(sample, 192000, 96000)
-	samplerate = 96000
+	sample = librosa.resample(sample, 192000, 64000)
+	samplerate = 64000
 
 	f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
 
@@ -56,15 +56,16 @@ def load_file(file, mod=None):
 	else:
 		mag = np.abs(Zxx)
 
-	mag = np.array(((mag - np.min(mag))/np.max(mag))*255, dtype=np.uint8)
+	spec = np.array(((mag - np.min(mag))/np.max(mag))*255, dtype=np.uint8)
+	spec = spec[:int(len(spec)/2), :]
 
-	return mag
+	return spec
 
-def load_unique_file(arg, mod=None):
+def load_unique_file(arg, mod=None, cropmid=True):
 	path, mod = arg
-	sample, samplerate = librosa.load(os.path.join(path), sr=400000)
-	sample = librosa.resample(sample, samplerate, 96000)
-	samplerate = 96e3
+	sample, samplerate = librosa.load(os.path.join(path), sr=64000)
+	# sample = librosa.resample(sample, samplerate, 96000)
+	# samplerate = 96e3
 
 	f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
 
@@ -75,8 +76,10 @@ def load_unique_file(arg, mod=None):
 		mag = np.abs(Zxx)
 		mag = mag
 
+	spec = np.array((mag - np.min(mag))/np.max(mag)*255, dtype=np.uint8)
+	spec = spec[:int(len(spec)/2), :]
 	#dataset[i, :, :] = np.array(((mag - np.min(mag))/np.max(mag))*255, dtype=np.uint8)
-	return np.array((mag - np.min(mag))/np.max(mag)*255, dtype=np.uint8)
+	return spec
 
 def load_data_array_multi(folder, filename='dataset', mod=None):
 	files = os.listdir(folder)
@@ -109,7 +112,7 @@ def cosine_distance(arr, brr):
 	return cosine(arr.flatten(), brr.flatten())
 
 if __name__ == '__main__':
-	load_data_array_multi('/home/pouple/PhD/Code/Dimmy/Data/audio_wav', mod='log', filename='train_no_noise.pkl')
+	load_data_array_multi('/home/pouple/PhD/Code/Dimmy/Raw_sounds_dataset', mod='log', filename='heardat_test.pkl')
 
 
 		
