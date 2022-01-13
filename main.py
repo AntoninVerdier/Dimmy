@@ -82,6 +82,8 @@ if args.train:
               validation_data=(X_valid, X_valid),
               epochs=params.epochs,
               batch_size=args.batch_size)
+      best_model = tuner.get_best_models()[0]
+
 
     encoder, decoder, autoencoder = auto.get_model()
 
@@ -103,7 +105,7 @@ if args.train:
                               batch_size=args.batch_size if args.batch_size else 32)
 
     ts = int(datetime.datetime.now().timestamp())
-
+    print('gogo')
     autoencoder.save(os.path.join(paths.path2Models, 'Autoencoder_model_{}_{}'.format(args.network, ts)))
     encoder.save(os.path.join(paths.path2Models, 'Encoder_model_{}_{}'.format(args.network, ts)))
     decoder.save(os.path.join(paths.path2Models, 'Decoder_model_{}_{}'.format(args.network, ts)))
@@ -118,7 +120,7 @@ if args.predict:
 
   #fig, axs = plt.subplots(10, 10, figsize=(20, 20))
   cmap = matplotlib.cm.get_cmap('hsv')
-  sounds_to_encode = '/home/pouple/PhD/Code/Dimmy/Data/SoundsHearlight'
+  sounds_to_encode = '/home/user/Documents/Antonin/Dimmy/Data/SoundsHearlight'
   all_latent = []
   colors = [cmap(0.1)]*6 + [cmap(0.3)]*24 + [cmap(1)] + [cmap(0.5)]*16 + [cmap(0.7)]*16
 
