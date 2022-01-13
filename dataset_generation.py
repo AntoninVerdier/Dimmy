@@ -38,6 +38,11 @@ step_ranges = np.random.randint(low=500, high=20000, size=(3000, 2), dtype=int)
 step_size = np.random.randint(low=2, high=60, size=(3000, 1), dtype=int)
 steps = np.concatenate([step_ranges, step_size], axis=1)
 
+funda_harm = np.random.randint(low=1000, high=10000, size=200)
+patt_harms
+
+
+
 # Generate pure_tones
 def gen_pt(f):
 	pure = Sound(amplitude=amplitude, samplerate=samplerate)
@@ -63,6 +68,9 @@ def gen_steps(s):
 		step.save_wav(name='Step_{}_{}_{}_{}ms_{}dB'.format(s[0], s[1], s[2], duration, amplitude), path=path)
 	except Exception as e:
 		print(e)
+def gen_fmul(fs):
+	fmul = Sound(amplitude=amplitude, samplerate=samplerate)
+	fmul.multi_freqs()
 
 def gen_multi(function, args):
 	with Pool() as p:
@@ -70,10 +78,13 @@ def gen_multi(function, args):
 		dataset = [p.get() for p in track(results, description='Generating sounds ...')]
 
 if __name__ == '__main__':
+	fmul = Sound(amplitude=amplitude, samplerate=samplerate)
+	fmul.multi_freqs([1e3, 2e3])
+	fmul.save_wav(name='test_mul', path='')
 	# gen_multi(gen_pt, pts)
 	# gen_multi(gen_am, ams)
-	gen_multi(gen_chirps, chirps)
-	gen_multi(gen_steps, steps)
+	# gen_multi(gen_chirps, chirps)
+	# gen_multi(gen_steps, steps)
 
 # Generate sounds for frequency discrimnation
 
