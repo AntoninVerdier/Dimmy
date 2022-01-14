@@ -39,9 +39,12 @@ step_size = np.random.randint(low=2, high=60, size=(3000, 1), dtype=int)
 steps = np.concatenate([step_ranges, step_size], axis=1)
 
 funda_harm = np.random.randint(low=1000, high=10000, size=200)
-patt_harms
-
-
+patt_harms= np.random.randint(low=0, high=2, size=(20, 5))
+patt_harms = np.arange(1, 6) * patt_harms
+harmonics =np.array([f*patt for f in funda_harm for patt in patt_harms])
+harmonics[harmonics > 32000] = 0
+harmonics = [[i for i in h if i != 0] for h in harmonics]
+fs = [h for h in harmonics if len(h) > 0]
 
 # Generate pure_tones
 def gen_pt(f):
@@ -70,7 +73,8 @@ def gen_steps(s):
 		print(e)
 def gen_fmul(fs):
 	fmul = Sound(amplitude=amplitude, samplerate=samplerate)
-	fmul.multi_freqs()
+	fmul.multi_freqs(fs, duration=duration)
+	fmul.save_wav(name='Harm_{}_{}ms_{}dB'.format(fs, duration, amplitude), path=path)
 
 def gen_multi(function, args):
 	with Pool() as p:
@@ -78,9 +82,8 @@ def gen_multi(function, args):
 		dataset = [p.get() for p in track(results, description='Generating sounds ...')]
 
 if __name__ == '__main__':
-	fmul = Sound(amplitude=amplitude, samplerate=samplerate)
-	fmul.multi_freqs([1e3, 2e3])
-	fmul.save_wav(name='test_mul', path='')
+	pass
+	gen_multi(gen_fmul, fs)
 	# gen_multi(gen_pt, pts)
 	# gen_multi(gen_am, ams)
 	# gen_multi(gen_chirps, chirps)
