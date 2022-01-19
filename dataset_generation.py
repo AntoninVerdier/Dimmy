@@ -14,7 +14,7 @@ from multiprocessing import Pool, Manager
 samplerate = 64000
 amplitude = 70
 duration = 500
-path = 'Raw_sounds_dataset'
+path = 'Clean_sounds_dataset'
 path_noise = 'Noise_sounds_dataset'
 
 parser = argparse.ArgumentParser(description='Add noise or not')
@@ -43,9 +43,9 @@ A = 10**((amplitude-dBref)/20)
 # Pure tone frequencies
 pts = np.random.randint(low=500, high=32000, size=3000, dtype=int)
 
-carryam_frequencies = np.random.randint(low=6000, high=16000, size=100, dtype=int)
-am_frequencies = np.random.randint(low=10, high=300, size=30, dtype=int)
-ams = [(cam, fam) for cam in carryam_frequencies for fam in am_frequencies]
+carryam_frequencies = np.random.randint(low=6000, high=16000, size=3000, dtype=int)
+am_frequencies = np.random.randint(low=10, high=200, size=3000, dtype=int)
+ams = [(cam, fam) for cam, fam in zip(carryam_frequencies, am_frequencies)]
 
 
 chirps= np.random.randint(low=500, high=20000, size=(3000, 2), dtype=int)
@@ -62,7 +62,7 @@ harmonics[harmonics > 32000] = 0
 harmonics = [[i for i in h if i != 0] for h in harmonics]
 fs = [h for h in harmonics if len(h) > 0]
 
-wham_dataset = '/home/pouple/PhD/Code/Dimmy/cv'
+wham_dataset = '/home/user/Documents/Antonin/Dimmy/cv'
 random_picked_noise = np.random.choice([w for w in os.listdir(wham_dataset)], size=800)
 random_picked_noise = [librosa.load(os.path.join(wham_dataset, r), sr=16000, duration=2)[0] for r in random_picked_noise]
 random_picked_noise = [A * (r - np.max(r))/(np.max(r) - np.min(r)) for r in random_picked_noise]
@@ -72,15 +72,16 @@ for r in random_white_noise: r.noise(duration)
 random_white_noise = [r.signal for r in random_white_noise]
 random_noise = random_picked_noise + random_white_noise
 
-print()
 
 # Generate pure_tones
 def gen_pt(f, noise):
 	pure = Sound(amplitude=amplitude, samplerate=samplerate)
 	pure.pure_tone(f, duration=duration)
 	if noise is not None:
+		pure.save_wav(name='PT_{}_{}ms_{}dB_noise{}'.format(f, duration, amplitude, noise), path=path)
 		pure.signal += random_noise[np.random.choice(np.arange(1000))]
 		pure.save_wav(name='PT_{}_{}ms_{}dB_noise{}'.format(f, duration, amplitude, noise), path=path_noise)
+
 	else:
 		pure.save_wav(name='PT_{}_{}ms_{}dB'.format(f, duration, amplitude), path=path)
 
@@ -89,6 +90,7 @@ def gen_am(ams, noise):
 	am = Sound(amplitude=amplitude, samplerate=samplerate)
 	am.amplitude_modulation(ams[0], ams[1], duration=duration)
 	if noise is not None:
+		am.save_wav(name='AM_{}_{}_{}ms_{}dB_noise{}'.format(ams[0], ams[1], duration, amplitude, noise), path=path)
 		am.signal += random_noise[np.random.choice(np.arange(1000))]
 		am.save_wav(name='AM_{}_{}_{}ms_{}dB_noise{}'.format(ams[0], ams[1], duration, amplitude, noise), path=path_noise)
 	else:
@@ -99,6 +101,7 @@ def gen_chirps(c, noise):
 	chirp = Sound(amplitude=amplitude, samplerate=samplerate)
 	chirp.freq_modulation(c[0], c[1], duration=duration)
 	if noise is not None:
+		chirp.save_wav(name='Chirp_{}_{}_{}ms_{}dB_noise{}'.format(c[0], c[1], duration, amplitude, noise), path=path)
 		chirp.signal += random_noise[np.random.choice(np.arange(1000))]
 		chirp.save_wav(name='Chirp_{}_{}_{}ms_{}dB_noise{}'.format(c[0], c[1], duration, amplitude, noise), path=path_noise)
 	else:
@@ -109,6 +112,7 @@ def gen_steps(s, noise):
 	try:
 		step.steps(s[0], s[1], s[2], spacing='Log', duration=duration)
 		if noise is not None:
+			step.save_wav(name='Step_{}_{}_{}_{}ms_{}dB_noise{}'.format(s[0], s[1], s[2], duration, amplitude, noise), path=path)
 			step.signal += random_noise[np.random.choice(np.arange(1000))]
 			step.save_wav(name='Step_{}_{}_{}_{}ms_{}dB_noise{}'.format(s[0], s[1], s[2], duration, amplitude, noise), path=path_noise)
 		else:
@@ -120,6 +124,7 @@ def gen_fmul(fs, noise):
 	fmul = Sound(amplitude=amplitude, samplerate=samplerate)
 	fmul.multi_freqs(fs, duration=duration)
 	if noise is not None:
+		fmul.save_wav(name='Harm_{}_{}ms_{}dB_noise{}'.format(fs, duration, amplitude, noise), path=path)
 		fmul.signal += random_noise[np.random.choice(np.arange(1000))]
 		fmul.save_wav(name='Harm_{}_{}ms_{}dB_noise{}'.format(fs, duration, amplitude, noise), path=path_noise)
 	fmul.save_wav(name='Harm_{}_{}ms_{}dB'.format(fs, duration, amplitude), path=path)

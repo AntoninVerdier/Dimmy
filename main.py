@@ -62,24 +62,28 @@ if args.callbacks:
 
 
 if args.train:
-    X_train = np.load(open('heardat_test.pkl', 'rb'), allow_pickle=True)
+    X_train = np.load(open('heardat_noise_dataset.pkl', 'rb'), allow_pickle=True)
+    X_train_c = np.load(open('heardat_clean_dataset.pkl', 'rb'), allow_pickle=True)
 
     # Select the desired portion of the data and shuffle it
     shuffle_mask = np.random.choice(X_train.shape[0], int(args.data_size/100 * X_train.shape[0]), replace=False)
     X_train = X_train[shuffle_mask]
+    X_train_c = X_train_c[shuffle_mask]
 
     if args.network: # This to enable fair splitting for convolution
-      input_shape = (256, 64)
+      X_train = X_train[:, :, :112]
+      X_train_c = X_train_c[:, :, :112]
+      input_shape = (128, 112)
 
 
-    X_train, X_valid = train_test_split(X_train, test_size=0.2, shuffle=True)
+    X_train, X_valid, X_train_c, X_valid_c = train_test_split(X_train, X_train_c, test_size=0.2, shuffle=True)
 
     auto = Autoencoder('{net}'.format(net=args.network if args.network else 'dense'), input_shape, params.latent_size)
 
     if 'tune' in args.network:
       tuner = auto.get_model()
-      tuner.search(X_train, X_train,
-              validation_data=(X_valid, X_valid),
+      tuner.search(X_train, X_train_c,
+              validation_data=(X_valid, X_valid_c),
               epochs=params.epochs,
               batch_size=args.batch_size)
       best_model = tuner.get_best_models()[0]
@@ -93,19 +97,18 @@ if args.train:
 
 
     if args.callbacks:
-      history = autoencoder.fit(X_train, X_train,
-                                validation_data=(X_valid, X_valid),
+      history = autoencoder.fit(X_train, X_train_c,
+                                validation_data=(X_valid, X_valid_c),
                                 epochs=params.epochs, 
                                 batch_size=args.batch_size if args.batch_size else 32,
                                 callbacks=keras_callbacks)
     else:
-      history = autoencoder.fit(X_train, X_train,
-                              validation_data=(X_valid, X_valid),
+      history = autoencoder.fit(X_train, X_train_c,
+                              validation_data=(X_valid, X_valid_c),
                               epochs=params.epochs, 
                               batch_size=args.batch_size if args.batch_size else 32)
 
     ts = int(datetime.datetime.now().timestamp())
-    print('gogo')
     autoencoder.save(os.path.join(paths.path2Models, 'Autoencoder_model_{}_{}'.format(args.network, ts)))
     encoder.save(os.path.join(paths.path2Models, 'Encoder_model_{}_{}'.format(args.network, ts)))
     decoder.save(os.path.join(paths.path2Models, 'Decoder_model_{}_{}'.format(args.network, ts)))

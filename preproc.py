@@ -67,7 +67,7 @@ def load_unique_file(arg, mod=None, cropmid=True):
 	# sample = librosa.resample(sample, samplerate, 96000)
 	# samplerate = 96e3
 
-	f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=1024, noverlap=512)
+	f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=512, noverlap=256)
 
 	if mod == 'log':
 		mag = np.log(1 + np.abs(Zxx))
@@ -81,13 +81,12 @@ def load_unique_file(arg, mod=None, cropmid=True):
 	#dataset[i, :, :] = np.array(((mag - np.min(mag))/np.max(mag))*255, dtype=np.uint8)
 	return spec
 
-def load_data_array_multi(folder, filename='dataset', mod=None):
-	files = os.listdir(folder)
-	ids = [f[:-4] for f in files]
+def load_data_array_multi(file_list, filename='dataset', mod=None):
+	ids = [os.path.basename(f) for f in file_list]
 
 	dataset = []
 
-	paths = [(os.path.join(folder, file), mod) for file in files]
+	paths = [(file, mod) for file in file_list]
 
 	with Pool() as p:
 		results = [p.apply_async(load_unique_file, args=(path, )) for path in paths]
@@ -112,7 +111,17 @@ def cosine_distance(arr, brr):
 	return cosine(arr.flatten(), brr.flatten())
 
 if __name__ == '__main__':
-	load_data_array_multi('/home/pouple/PhD/Code/Dimmy/Raw_sounds_dataset', mod='log', filename='heardat_test.pkl')
+
+	pc = '/home/user/Documents/Antonin/Dimmy/Clean_sounds_dataset'
+	pn = '/home/user/Documents/Antonin/Dimmy/Noise_sounds_dataset'
+
+	paths_noise = [os.path.join(pn, f) for f in os.listdir(pn)]
+	basename_noise = [os.path.basename(f) for f in os.listdir(pn)]
+	paths_clean = [os.path.join(pc, f) for f in track(os.listdir(pc)) if os.path.basename(f) in basename_noise]
+
+	load_data_array_multi(paths_noise, mod='log', filename='heardat_noise_dataset.pkl')
+	load_data_array_multi(paths_clean, mod='log', filename='heardat_clean_dataset.pkl')
+
 
 
 		

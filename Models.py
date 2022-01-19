@@ -322,7 +322,7 @@ class Autoencoder():
         encoder.add(MaxPooling2D((2, 2), padding="same"))
         encoder.add(Conv2D(48, kernel_size=7, padding='same', activation='relu'))
         encoder.add(Flatten())
-        encoder.add(DenseMax(self.latent_dim, max_n=20, lambertian=False, kernel_constraint=UnitNorm()))
+        encoder.add(DenseMax(self.latent_dim, max_n=100, lambertian=False, kernel_constraint=UnitNorm()))
 
 
         encoder.compile(optimizer=opt, loss='mse')
@@ -333,12 +333,12 @@ class Autoencoder():
 
         decoder = Sequential()
         decoder.add(InputLayer((100)))
-        #decoder.add(Discretization(num_bins=10, epsilon=0.01)) # Need to check if binning is good, i.e what is the range of input data
-        decoder.add(Reshape((10, 10, 1)))
-        decoder.add(gaussian_blur)
-        decoder.add(Reshape((100,)))
-        decoder.add(Dense(32*8*16))
-        decoder.add(Reshape((32, 8, 16)))
+        # #decoder.add(Discretization(num_bins=10, epsilon=0.01)) # Need to check if binning is good, i.e what is the range of input data
+        # decoder.add(Reshape((10, 10, 1)))
+        # decoder.add(gaussian_blur)
+        # decoder.add(Reshape((100,)))
+        decoder.add(Dense(16*14*48))
+        decoder.add(Reshape((16, 14, 48)))
         decoder.add(Conv2DTranspose(48, 7, strides=1, activation="relu", padding="same"))
         decoder.add(UpSampling2D((2, 2)))
         decoder.add(Conv2DTranspose(48, 5, strides=1, activation="relu", padding="same"))
@@ -352,8 +352,8 @@ class Autoencoder():
 
         print(encoder.summary())
         decoder.compile(optimizer=opt, loss='mse')
-        gaussian_blur.set_weights([kernel_weights])
-        gaussian_blur.trainable = False
+        # gaussian_blur.set_weights([kernel_weights])
+        # gaussian_blur.trainable = False
 
         print(decoder.summary())
 
