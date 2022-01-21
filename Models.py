@@ -314,11 +314,11 @@ class Autoencoder():
         encoder = Sequential()
         encoder.add(InputLayer((*self.input_shape, 1)))
 
-        encoder.add(Conv2D(96, kernel_size=9, padding='same', activation='relu'))
+        encoder.add(Conv2D(96, kernel_size=11, padding='same', activation='relu'))
         encoder.add(MaxPooling2D((2, 2), padding="same"))
         encoder.add(Conv2D(64, kernel_size=5, padding='same', activation='relu'))
         encoder.add(MaxPooling2D((2, 2), padding="same"))
-        encoder.add(Conv2D(48, kernel_size=5, padding='same', activation='relu'))
+        encoder.add(Conv2D(64, kernel_size=5, padding='same', activation='relu'))
         encoder.add(MaxPooling2D((2, 2), padding="same"))
         encoder.add(Conv2D(48, kernel_size=7, padding='same', activation='relu'))
         encoder.add(Flatten())

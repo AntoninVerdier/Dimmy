@@ -62,8 +62,8 @@ if args.callbacks:
 
 
 if args.train:
-    X_train = np.load(open('heardat_noise_dataset.pkl', 'rb'), allow_pickle=True)
-    X_train_c = np.load(open('heardat_clean_dataset.pkl', 'rb'), allow_pickle=True)
+    X_train = np.load(open('heardat_noise_datasetv2.pkl', 'rb'), allow_pickle=True)
+    X_train_c = np.load(open('heardat_clean_datasetv2.pkl', 'rb'), allow_pickle=True)
 
     # Select the desired portion of the data and shuffle it
     shuffle_mask = np.random.choice(X_train.shape[0], int(args.data_size/100 * X_train.shape[0]), replace=False)
@@ -127,13 +127,14 @@ if args.predict:
   all_latent = []
   colors = [cmap(0.1)]*6 + [cmap(0.3)]*24 + [cmap(1)] + [cmap(0.5)]*16 + [cmap(0.7)]*16
 
-  X_test = [proc.load_file(os.path.join(sounds_to_encode, f), mod='log').reshape(1, 256, 64, 1) for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode)))]
-  X_test = np.array(X_test).reshape(len(X_test), 256, 64, 1)
-  print(autoencoder.evaluate(X_test, X_test))
+  # X_test = [proc.load_file(os.path.join(sounds_to_encode, f), mod='log').reshape(1, 128, 126, 1) for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode)))]
+  # X_test = np.array(X_test).reshape(len(X_test), 256, 64, 1)
+  # print(autoencoder.evaluate(X_test, X_test))
 
   for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode))):
     print(f)
-    X_test = proc.load_file(os.path.join(sounds_to_encode, f), mod='log').reshape(1, 256, 64, 1)
+    X_test = proc.load_unique_file((os.path.join(sounds_to_encode, f), 'log')).reshape(1, 128, 126, 1)
+    X_test = X_test[:, :, :112, :]
 
 
 

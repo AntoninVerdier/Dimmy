@@ -14,8 +14,8 @@ from multiprocessing import Pool, Manager
 samplerate = 64000
 amplitude = 70
 duration = 500
-path = 'Clean_sounds_dataset'
-path_noise = 'Noise_sounds_dataset'
+path = 'Clean_sounds_datasetv2'
+path_noise = 'Noise_sounds_datasetv2'
 
 parser = argparse.ArgumentParser(description='Add noise or not')
 
