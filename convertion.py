@@ -10,7 +10,7 @@ import settings as s
 
 paths = s.paths()
 
-rootdir = '/home/user/Documents/Antonin/Code/Dimmy/Latent'
+rootdir = '/home/anverdie/Documents/Code/Dimmy/to_convert'
 
 
 for f in os.listdir(rootdir):
@@ -25,4 +25,4 @@ for f in os.listdir(rootdir):
 			os.makedirs(os.path.join(paths.path2OutputD, 'DLP'))
 
 		np.save(os.path.join(paths.path2OutputD, 'DLP', '{}_dlp.npy'.format(f[:-4])), l)
-		matplotlib.image.imsave(os.path.join(paths.path2OutputD, 'DLP', '{}_dlp.bmp'.format(f[:-4])), 1-l, cmap='Greys')
+		matplotlib.image.imsave(os.path.join(paths.path2OutputD, 'DLP', '{}_dlp.bmp'.format(f[:-4])), 1-l, cmap='Greys', vmin=0, vmax=1)
