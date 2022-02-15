@@ -3,19 +3,18 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 
-from PIL import Image
-
 import preproc as p
 import settings as s 
 
 paths = s.paths()
 
-rootdir = '/home/anverdie/Documents/Code/Dimmy/to_convert'
+rootdir = '/home/anverdie/Documents/Code/interfaceDalleLed/Stims'
 
 
 for f in os.listdir(rootdir):
 	if not os.path.isdir(os.path.join(rootdir, f)):
 		l = np.load(os.path.join(rootdir, f)).reshape(10, 10)
+		print(l.shape)
 		l = np.repeat(l, 30, axis=0)
 		l = np.repeat(l, 30, axis=1)
 		pad = np.zeros((90, 300))

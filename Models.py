@@ -1,12 +1,18 @@
+import time
 import tensorflow as tf
 
 import tensorflow.keras
 import numpy as np
 
+from tcn import TCN
+
 import keras_tuner as kt
 from tensorflow.keras.models import Sequential, Model, load_model
 from tensorflow.keras.layers import Input, Dense, InputLayer, Flatten, Reshape, Layer, Conv2D, Conv2DTranspose, MaxPooling2D, UpSampling2D, DepthwiseConv2D
+from tensorflow.keras.layers import Activation, Dropout, Conv1D, UpSampling1D, MaxPooling1D, AveragePooling1D
+
 from tensorflow.keras import backend as K
+from tensorflow.keras import optimizers
 
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import Input, Dense, Layer, InputSpec
@@ -26,6 +32,7 @@ from tensorflow.keras import layers
 
 from tensorflow.python.ops.numpy_ops import np_config
 np_config.enable_numpy_behavior()
+
 
 
 # Could be useful to implement talos library for gidsearch to run on the weekend
@@ -210,6 +217,8 @@ class Autoencoder():
         elif self.model =='conv_simple_tune':
             tuner = kt.RandomSearch(self.__conv_simple_tune, objective='val_loss', max_trials=30)
             return tuner
+        elif self.model == 'tcn':
+            return self.__tcn_ae()
     
     def get_data(self):
         if self.dataset_type == 'log':
@@ -539,3 +548,64 @@ class Autoencoder():
         autoencoder = Model(inp, reconstruction, name='dense')
         autoencoder.compile(optimizer=opt, loss='mse')
         return autoencoder
+
+
+    def __tcn_ae(self):
+
+        ts_dimension = 1
+        dilations = (1, 2, 4, 8, 16)
+        nb_filters = 20
+        kernel_size = 20
+        nb_stacks = 1
+        padding = 'same'
+        dropout_rate = 0.00
+        filters_conv1d = 8
+        activation_conv1d = 'linear'
+        latent_sample_rate = 42
+        pooler = AveragePooling1D
+        lr = 0.001
+        conv_kernel_init = 'glorot_normal'
+        loss = 'logcosh'
+        use_early_stopping = False
+        error_window_length = 128
+        verbose = 1
+
+        
+                        
+        tensorflow.keras.backend.clear_session()
+        sampling_factor = latent_sample_rate
+        i = Input(batch_shape=(None, None, ts_dimension))
+
+        # Put signal through TCN. Output-shape: (batch,sequence length, nb_filters)
+        tcn_enc = TCN(nb_filters=nb_filters, kernel_size=kernel_size, nb_stacks=nb_stacks, dilations=dilations, 
+                      padding=padding, use_skip_connections=True, dropout_rate=dropout_rate, return_sequences=True,
+                      kernel_initializer=conv_kernel_init, name='tcn-enc')(i)
+
+        # Now, adjust the number of channels...
+        enc_flat = Conv1D(filters=filters_conv1d, kernel_size=1, activation=activation_conv1d, padding=padding)(tcn_enc)
+
+        ## Do some average (max) pooling to get a compressed representation of the time series (e.g. a sequence of length 8)
+        enc_pooled = pooler(pool_size=sampling_factor, strides=None, padding='valid', data_format='channels_last')(enc_flat)
+        
+        # If you want, maybe put the pooled values through a non-linear Activation
+        enc_out = Activation("linear")(enc_pooled)
+
+        # Now we should have a short sequence, which we will upsample again and then try to reconstruct the original series
+        dec_upsample = UpSampling1D(size=sampling_factor)(enc_out)
+
+        dec_reconstructed = TCN(nb_filters=nb_filters, kernel_size=kernel_size, nb_stacks=nb_stacks, dilations=dilations, 
+                                padding=padding, use_skip_connections=True, dropout_rate=dropout_rate, return_sequences=True,
+                                kernel_initializer=conv_kernel_init, name='tcn-dec')(dec_upsample)
+
+        # Put the filter-outputs through a dense layer finally, to get the reconstructed signal
+        o = Dense(ts_dimension, activation='linear')(dec_reconstructed)
+
+        model = Model(inputs=[i], outputs=[o])
+
+        adam = optimizers.Adam(lr=lr, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0, amsgrad=True)
+        model.compile(loss=loss, optimizer=adam, metrics=[loss])
+        if verbose > 1:
+            model.summary()
+        
+        return model 
+        
