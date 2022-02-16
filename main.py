@@ -7,6 +7,10 @@ import argparse
 import numpy as np
 import natsort as n
 import pickle as pkl
+import librosa
+import scipy.io as sio
+
+import pandas as pd
 
 from scipy import signal
 import matplotlib.pyplot as plt
@@ -26,6 +30,9 @@ import preproc as proc
 from Models import Autoencoder
 from data_gen import DataGenerator, DataGenerator_both, get_generators
 import settings as s
+
+# TCN utilities
+import utils_tcn as utcn
 paths = s.paths()
 params = s.params()
 
@@ -57,13 +64,13 @@ if args.callbacks:
 
   keras_callbacks = [
     tensorboard
-  ]
-
+  
+]
 
 
 if args.train:
-    X_train = np.load(open('heardat_noise_datasetv2.pkl', 'rb'), allow_pickle=True)
-    X_train_c = np.load(open('heardat_clean_datasetv2.pkl', 'rb'), allow_pickle=True)
+    X_train = np.load(open('raw_heardat_noise_v2_60.npy', 'rb'), allow_pickle=True)
+    X_train_c = np.load(open('raw_heardat_noise_v2_60.npy', 'rb'), allow_pickle=True)
 
     # Select the desired portion of the data and shuffle it
     shuffle_mask = np.random.choice(X_train.shape[0], int(args.data_size/100 * X_train.shape[0]), replace=False)
@@ -71,16 +78,19 @@ if args.train:
     X_train_c = X_train_c[shuffle_mask]
 
     if args.network: # This to enable fair splitting for convolution
-      X_train = X_train[:, :, :112]
-      X_train_c = X_train_c[:, :, :112]
-      input_shape = (128, 112)
+      # X_train = X_train[:, :, :112]
+      # X_train_c = X_train_c[:, :, :112]
+      #input_shape = (128, 112)
+      X_train = X_train[:, :31962]
+      X_train_c = X_train_c[:, :31962]
+      input_shape = (31962,)
 
 
     X_train, X_valid, X_train_c, X_valid_c = train_test_split(X_train, X_train_c, test_size=0.2, shuffle=True)
 
     auto = Autoencoder('{net}'.format(net=args.network if args.network else 'dense'), input_shape, params.latent_size)
 
-    if 'tune' in args.network:
+    if "tune" in args.network:
       tuner = auto.get_model()
       tuner.search(X_train, X_train_c,
               validation_data=(X_valid, X_valid_c),
@@ -91,10 +101,10 @@ if args.train:
 
     encoder, decoder, autoencoder = auto.get_model()
 
-    X_train = np.expand_dims(X_train, 3)
+    #X_train = np.expand_dims(X_train, 2)
 
 
-
+    print(X_train.shape)
 
     if args.callbacks:
       history = autoencoder.fit(X_train, X_train_c,
@@ -118,95 +128,121 @@ if args.train:
 if args.predict:
 
   autoencoder = load_model(os.path.join(paths.path2Models,'Autoencoder_model_{}'.format(args.network)))
-  encoder = load_model(os.path.join(paths.path2Models,'Encoder_model_{}'.format(args.network)))
-  decoder = load_model(os.path.join(paths.path2Models,'Decoder_model_{}'.format(args.network)))
-
-  #fig, axs = plt.subplots(10, 10, figsize=(20, 20))
-  cmap = matplotlib.cm.get_cmap('hsv')
+  print(autoencoder.summary())
+  # encoder = load_model(os.path.join(paths.path2Models,'Encoder_model_{}'.format(args.network)))
+  # decoder = load_model(os.path.join(paths.path2Models,'Decoder_model_{}'.format(args.network)))  
   sounds_to_encode = '/home/user/Documents/Antonin/Dimmy/Data/SoundsHearlight'
-  all_latent = []
-  colors = [cmap(0.1)]*6 + [cmap(0.3)]*24 + [cmap(1)] + [cmap(0.5)]*16 + [cmap(0.7)]*16
+  test_X = np.array([proc.load_raw_file((os.path.join(sounds_to_encode, f))) for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode)))])
 
-  # X_test = [proc.load_file(os.path.join(sounds_to_encode, f), mod='log').reshape(1, 128, 126, 1) for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode)))]
-  # X_test = np.array(X_test).reshape(len(X_test), 256, 64, 1)
-  # print(autoencoder.evaluate(X_test, X_test))
+  
+  names = [f[:-4] for f in n.natsorted(os.listdir(sounds_to_encode))]
 
-  for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode))):
-    print(f)
-    X_test = proc.load_unique_file((os.path.join(sounds_to_encode, f), 'log')).reshape(1, 128, 126, 1)
-    X_test = X_test[:, :, :112, :]
+  X_rec =  autoencoder.predict(test_X)
+  for i, sound in enumerate(X_rec):
+    sio.wavfile.write('/home/user/Documents/Antonin/Dimmy/Output/Sounds/{}.wav'.format(names[i]), 64000, sound)
+  
+  # do some padding in the end, since not necessarily the whole time series is reconstructed
+  X_rec = np.pad(X_rec, ((0,0),(0, test_X.shape[1] - X_rec.shape[1] ), (0,0)), 'constant').reshape(62, 32000, 1) 
+  E_rec = (X_rec - test_X.reshape(62, 32000, 1)).squeeze()
+  Err = utcn.slide_window(pd.DataFrame(E_rec), 128, verbose = 0)
+  Err = Err.reshape(-1, Err.shape[-1]*Err.shape[-2])
+  sel = np.random.choice(range(Err.shape[0]),int(Err.shape[0]*0.98))
+  mu = np.mean(Err[sel], axis=0)
+  cov = np.cov(Err[sel], rowvar = False)
+  sq_mahalanobis = utcn.mahalanobis_distance(X=Err[:], cov=cov, mu=mu)
+  # moving average over mahalanobis distance. Only slightly smooths the signal
+  anomaly_score = np.convolve(sq_mahalanobis, np.ones((50,))/50, mode='same')
+  anomaly_score = np.sqrt(anomaly_score)
+  
+
+  print(anomaly_score)
+
+#   #fig, axs = plt.subplots(10, 10, figsize=(20, 20))
+#   cmap = matplotlib.cm.get_cmap('hsv')
+#   sounds_to_encode = '/home/user/Documents/Antonin/Dimmy/Data/SoundsHearlight'
+#   all_latent = []
+#   colors = [cmap(0.1)]*6 + [cmap(0.3)]*24 + [cmap(1)] + [cmap(0.5)]*16 + [cmap(0.7)]*16
+
+#   # X_test = [proc.load_file(os.path.join(sounds_to_encode, f), mod='log').reshape(1, 128, 126, 1) for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode)))]
+#   # X_test = np.array(X_test).reshape(len(X_test), 256, 64, 1)
+#   # print(autoencoder.evaluate(X_test, X_test))
+
+#   for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode))):
+#     print(f)
+#     X_test = proc.load_unique_file((os.path.join(sounds_to_encode, f), 'log')).reshape(1, 128, 126, 1)
+#     X_test = X_test[:, :, :112, :]
 
 
 
-    latent_repre = encoder(X_test)
-    decoded_spec = autoencoder(X_test)
+#     latent_repre = encoder(X_test)
+#     decoded_spec = autoencoder(X_test)
 
 
 
-    all_latent.append(latent_repre)
+#     all_latent.append(latent_repre)
 
-    # if 'AM_' in f:
-    #   colors.append(cmap(0.1)) # Orange
-    # elif 'AMN_' in f:
-    #   colors.append(cmap(0.3)) # Vert
-    # elif 'PT_' in f:
-    #   colors.append(cmap(0.7))
-    # elif 'Steps_' in f:
-    #   colors.append(cmap(0.5))
-    # elif 'Chirp_' in f:
-    #   colors.append(cmap(0.5))
+#     # if 'AM_' in f:
+#     #   colors.append(cmap(0.1)) # Orange
+#     # elif 'AMN_' in f:
+#     #   colors.append(cmap(0.3)) # Vert
+#     # elif 'PT_' in f:
+#     #   colors.append(cmap(0.7))
+#     # elif 'Steps_' in f:
+#     #   colors.append(cmap(0.5))
+#     # elif 'Chirp_' in f:
+#     #   colors.append(cmap(0.5))
     
-    fig, axs = plt.subplots(2, 1)
+#     fig, axs = plt.subplots(2, 1)
     
-    axs[0].imshow(X_test[0].T[0])
-    axs[1].imshow(decoded_spec[0].T[0])
+#     axs[0].imshow(X_test[0].T[0])
+#     axs[1].imshow(decoded_spec[0].T[0])
     
-    axs[0].set_title('Sound input')
-    axs[1].set_title('Retrieved spectrogram')
+#     axs[0].set_title('Sound input')
+#     axs[1].set_title('Retrieved spectrogram')
 
-    plt.savefig(os.path.join(paths.path2Output, 'Specs', '{}.png'.format(f[:-4])), dpi=300)
-    plt.close()
+#     plt.savefig(os.path.join(paths.path2Output, 'Specs', '{}.png'.format(f[:-4])), dpi=300)
+#     plt.close()
 
-    np.save(os.path.join(paths.path2OutputD, '{}.npy'.format(f[:-4])), latent_repre.numpy())
+#     np.save(os.path.join(paths.path2OutputD, '{}.npy'.format(f[:-4])), latent_repre.numpy())
 
-    # proc.convert_to_dlp(latent_repre)
+#     # proc.convert_to_dlp(latent_repre)
 
-    plt.imshow(latent_repre.reshape(10, 10))
-    plt.tight_layout()
-    plt.savefig(os.path.join(paths.path2Output, '{}png'.format(f[:-3])))
-    #np.save(latent_repre, os.path.join(paths.path2OutputD, '{}.npy'.format(f[:-3])))
-    plt.close()
-    # all_latent.append(latent_repre)
+#     plt.imshow(latent_repre.reshape(10, 10))
+#     plt.tight_layout()
+#     plt.savefig(os.path.join(paths.path2Output, '{}png'.format(f[:-3])))
+#     #np.save(latent_repre, os.path.join(paths.path2OutputD, '{}.npy'.format(f[:-3])))
+#     plt.close()
+#     # all_latent.append(latent_repre)
 
-  #   axs[i//10, i%10].imshow(latent_repre.reshape(10, 10))
-  #   axs[i//10, i%10].axes.get_xaxis().set_visible(False)
-  #   axs[i//10, i%10].axes.get_yaxis().set_visible(False)
+#   #   axs[i//10, i%10].imshow(latent_repre.reshape(10, 10))
+#   #   axs[i//10, i%10].axes.get_xaxis().set_visible(False)
+#   #   axs[i//10, i%10].axes.get_yaxis().set_visible(False)
 
-  # plt.tight_layout()
-  # plt.show()
-
-
-  all_latent = np.array(all_latent).reshape(-1, 100)
-  print(all_latent.shape)
-
-  clf = TSNE()
-  Y = clf.fit_transform(all_latent)
-  plt.scatter(Y[:, 0], Y[:, 1], c=colors)
-  plt.savefig('Output/TSNE/tsne.png')
-  plt.show()
+#   # plt.tight_layout()
+#   # plt.show()
 
 
+#   all_latent = np.array(all_latent).reshape(-1, 100)
+#   print(all_latent.shape)
+
+#   clf = TSNE()
+#   Y = clf.fit_transform(all_latent)
+#   plt.scatter(Y[:, 0], Y[:, 1], c=colors)
+#   plt.savefig('Output/TSNE/tsne.png')
+#   plt.show()
 
 
-  corr_matrix = proc.correlation_matrix(all_latent)
-  plt.imshow(corr_matrix)
-  plt.savefig(os.path.join(paths.path2Output, 'corr_matrix.png'))
-
-  plt.show()
 
 
-# history = pkl.load(open(os.path.join(paths.path2Models, 'model_history.pkl'), 'rb'))
-# plt.plot(history['loss'])
-# plt.savefig('Output/model_history.png')
+#   corr_matrix = proc.correlation_matrix(all_latent)
+#   plt.imshow(corr_matrix)
+#   plt.savefig(os.path.join(paths.path2Output, 'corr_matrix.png'))
+
+#   plt.show()
+
+
+# # history = pkl.load(open(os.path.join(paths.path2Models, 'model_history.pkl'), 'rb'))
+# # plt.plot(history['loss'])
+# # plt.savefig('Output/model_history.png')
 
 

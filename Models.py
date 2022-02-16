@@ -553,7 +553,7 @@ class Autoencoder():
     def __tcn_ae(self):
 
         ts_dimension = 1
-        dilations = (1, 2, 4, 8, 16)
+        dilations = (4, 8, 16, 64, 256, 1024)
         nb_filters = 20
         kernel_size = 20
         nb_stacks = 1
@@ -568,13 +568,13 @@ class Autoencoder():
         loss = 'logcosh'
         use_early_stopping = False
         error_window_length = 128
-        verbose = 1
+        verbose = 2
 
         
                         
         tensorflow.keras.backend.clear_session()
         sampling_factor = latent_sample_rate
-        i = Input(batch_shape=(None, None, ts_dimension))
+        i = Input(batch_shape=(None, 32000, ts_dimension))
 
         # Put signal through TCN. Output-shape: (batch,sequence length, nb_filters)
         tcn_enc = TCN(nb_filters=nb_filters, kernel_size=kernel_size, nb_stacks=nb_stacks, dilations=dilations, 
@@ -590,8 +590,12 @@ class Autoencoder():
         # If you want, maybe put the pooled values through a non-linear Activation
         enc_out = Activation("linear")(enc_pooled)
 
+        encoder = Model(inputs=[i], outputs=[enc_out])
+
         # Now we should have a short sequence, which we will upsample again and then try to reconstruct the original series
-        dec_upsample = UpSampling1D(size=sampling_factor)(enc_out)
+        j = Input(batch_shape=(None, None, filters_conv1d)) 
+        
+        dec_upsample = UpSampling1D(size=sampling_factor)(j)
 
         dec_reconstructed = TCN(nb_filters=nb_filters, kernel_size=kernel_size, nb_stacks=nb_stacks, dilations=dilations, 
                                 padding=padding, use_skip_connections=True, dropout_rate=dropout_rate, return_sequences=True,
@@ -600,12 +604,21 @@ class Autoencoder():
         # Put the filter-outputs through a dense layer finally, to get the reconstructed signal
         o = Dense(ts_dimension, activation='linear')(dec_reconstructed)
 
-        model = Model(inputs=[i], outputs=[o])
+        decoder = Model(inputs=[j], outputs=[o])
+        
+
+        code = encoder(i)
+        reconstruction = decoder(code)
+
+        autoencoder = Model(i, reconstruction)
 
         adam = optimizers.Adam(lr=lr, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0, amsgrad=True)
-        model.compile(loss=loss, optimizer=adam, metrics=[loss])
-        if verbose > 1:
-            model.summary()
         
-        return model 
+        autoencoder.compile(loss=loss, optimizer=adam, metrics=[loss])
+        if verbose > 1:
+            print(encoder.summary())
+            print(decoder.summary())
+            print(autoencoder.summary())
+        
+        return encoder, decoder, autoencoder 
         

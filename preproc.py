@@ -44,6 +44,8 @@ def load_data_array(folder, mod=None):
 
 	pkl.dump(dataset, open('dataset_train_cnn_log.pkl', 'wb'))
 
+def load_raw_file(file):
+	return librosa.load(file, sr=64000)[0]
 def load_file(file, mod=None):
 	sample, samplerate = librosa.load(file, sr=192000)
 	sample = librosa.resample(sample, 192000, 64000)
@@ -112,15 +114,15 @@ def cosine_distance(arr, brr):
 
 if __name__ == '__main__':
 
-	pc = '/home/user/Documents/Antonin/Dimmy/Clean_sounds_datasetv2'
-	pn = '/home/user/Documents/Antonin/Dimmy/Noise_sounds_datasetv2'
+	pc = '/home/user/Documents/Antonin/Dimmy/Clean_sounds_datasetv2_60'
+	pn = '/home/user/Documents/Antonin/Dimmy/Noise_sounds_datasetv2_60'
 
 	paths_noise = [os.path.join(pn, f) for f in os.listdir(pn)]
 	basename_noise = [os.path.basename(f) for f in os.listdir(pn)]
 	paths_clean = [os.path.join(pc, f) for f in track(os.listdir(pc)) if os.path.basename(f) in basename_noise]
 
-	load_data_array_multi(paths_noise, mod='log', filename='heardat_noise_datasetv2.pkl')
-	load_data_array_multi(paths_clean, mod='log', filename='heardat_clean_datasetv2.pkl')
+	load_data_array_multi(paths_noise, mod='log', filename='heardat_noise_datasetv2_60.pkl')
+	load_data_array_multi(paths_clean, mod='log', filename='heardat_clean_datasetv2_60.pkl')
 
 
 

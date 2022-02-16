@@ -13,9 +13,10 @@ from multiprocessing import Pool, Manager
 
 samplerate = 64000
 amplitude = 70
+noise_amplitude = 60
 duration = 500
-path = 'Clean_sounds_datasetv2'
-path_noise = 'Noise_sounds_datasetv2'
+path = 'Clean_sounds_datasetv2_60'
+path_noise = 'Noise_sounds_datasetv2_60'
 
 parser = argparse.ArgumentParser(description='Add noise or not')
 
@@ -36,9 +37,7 @@ if not os.path.exists(path_noise):
 np.random.seed(432754448)
 
 
-# Hard coding amplitude for boxes
-dBref = 100
-A = 10**((amplitude-dBref)/20)
+
 
 # Pure tone frequencies
 pts = np.random.randint(low=500, high=32000, size=3000, dtype=int)
@@ -62,12 +61,17 @@ harmonics[harmonics > 32000] = 0
 harmonics = [[i for i in h if i != 0] for h in harmonics]
 fs = [h for h in harmonics if len(h) > 0]
 
+
+# Hard coding amplitude for boxes
+dBref = 100
+A = 10**((noise_amplitude-dBref)/20)
+
 wham_dataset = '/home/user/Documents/Antonin/Dimmy/cv'
 random_picked_noise = np.random.choice([w for w in os.listdir(wham_dataset)], size=800)
 random_picked_noise = [librosa.load(os.path.join(wham_dataset, r), sr=16000, duration=2)[0] for r in random_picked_noise]
 random_picked_noise = [A * (r - np.max(r))/(np.max(r) - np.min(r)) for r in random_picked_noise]
 
-random_white_noise = [Sound(amplitude=amplitude, samplerate=samplerate) for i in range(200)]
+random_white_noise = [Sound(amplitude=noise_amplitude, samplerate=samplerate) for i in range(200)]
 for r in random_white_noise: r.noise(duration)
 random_white_noise = [r.signal for r in random_white_noise]
 random_noise = random_picked_noise + random_white_noise
