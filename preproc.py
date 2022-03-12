@@ -46,6 +46,7 @@ def load_data_array(folder, mod=None):
 
 def load_raw_file(file):
 	return librosa.load(file, sr=64000)[0]
+
 def load_file(file, mod=None):
 	sample, samplerate = librosa.load(file, sr=192000)
 	sample = librosa.resample(sample, 192000, 64000)
@@ -65,9 +66,9 @@ def load_file(file, mod=None):
 
 def load_unique_file(arg, mod=None, cropmid=True):
 	path, mod = arg
-	sample, samplerate = librosa.load(os.path.join(path), sr=64000)
-	# sample = librosa.resample(sample, samplerate, 96000)
-	# samplerate = 96e3
+	sample, samplerate = librosa.load(os.path.join(path), sr=192000)
+	sample = librosa.resample(sample, samplerate, 64000)
+	samplerate = 64e3
 
 	f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=512, noverlap=256)
 
@@ -114,15 +115,16 @@ def cosine_distance(arr, brr):
 
 if __name__ == '__main__':
 
-	pc = '/home/user/Documents/Antonin/Dimmy/Clean_sounds_datasetv2_60'
-	pn = '/home/user/Documents/Antonin/Dimmy/Noise_sounds_datasetv2_60'
+	pc = '/home/user/share/gaia/Data/Data_agmentation_CNN_Deepen/AugmentationFinal/Original140Sounds/raw_audio'
+	#pn = '/home/user/Documents/Antonin/Dimmy/Noise_sounds_datasetv2_60'
 
-	paths_noise = [os.path.join(pn, f) for f in os.listdir(pn)]
-	basename_noise = [os.path.basename(f) for f in os.listdir(pn)]
-	paths_clean = [os.path.join(pc, f) for f in track(os.listdir(pc)) if os.path.basename(f) in basename_noise]
-
-	load_data_array_multi(paths_noise, mod='log', filename='heardat_noise_datasetv2_60.pkl')
-	load_data_array_multi(paths_clean, mod='log', filename='heardat_clean_datasetv2_60.pkl')
+	# paths_noise = [os.path.join(pn, f) for f in os.listdir(pn)]
+	# basename_noise = [os.path.basename(f) for f in os.listdir(pn)]
+	# paths_clean = [os.path.join(pc, f) for f in track(os.listdir(pc)) if os.path.basename(f) in basename_noise]
+	
+	paths = [os.path.join(pc, f) for f in os.listdir(pc)]
+	load_data_array_multi(paths, mod='log', filename='deepen_140_test_sounds.pkl')
+	#load_data_array_multi(paths_clean, mod='log', filename='heardat_clean_datasetv2_60.pkl')
 
 
 

@@ -346,8 +346,8 @@ class Autoencoder():
         # decoder.add(Reshape((10, 10, 1)))
         # decoder.add(gaussian_blur)
         # decoder.add(Reshape((100,)))
-        decoder.add(Dense(16*14*48))
-        decoder.add(Reshape((16, 14, 48)))
+        decoder.add(Dense(16*47*48))
+        decoder.add(Reshape((16, 47, 48)))
         decoder.add(Conv2DTranspose(48, 7, strides=1, activation="relu", padding="same"))
         decoder.add(UpSampling2D((2, 2)))
         decoder.add(Conv2DTranspose(48, 5, strides=1, activation="relu", padding="same"))
@@ -553,28 +553,24 @@ class Autoencoder():
     def __tcn_ae(self):
 
         ts_dimension = 1
-        dilations = (4, 8, 16, 64, 256, 1024)
+        dilations = (4, 8, 16, 64, 96)
         nb_filters = 20
         kernel_size = 20
         nb_stacks = 1
         padding = 'same'
         dropout_rate = 0.00
-        filters_conv1d = 8
+        filters_conv1d = 32
         activation_conv1d = 'linear'
-        latent_sample_rate = 42
+        latent_sample_rate = 84
         pooler = AveragePooling1D
         lr = 0.001
         conv_kernel_init = 'glorot_normal'
         loss = 'logcosh'
-        use_early_stopping = False
-        error_window_length = 128
-        verbose = 2
-
         
                         
         tensorflow.keras.backend.clear_session()
         sampling_factor = latent_sample_rate
-        i = Input(batch_shape=(None, 32000, ts_dimension))
+        i = Input(batch_shape=(None, None, ts_dimension))
 
         # Put signal through TCN. Output-shape: (batch,sequence length, nb_filters)
         tcn_enc = TCN(nb_filters=nb_filters, kernel_size=kernel_size, nb_stacks=nb_stacks, dilations=dilations, 
@@ -588,7 +584,9 @@ class Autoencoder():
         enc_pooled = pooler(pool_size=sampling_factor, strides=None, padding='valid', data_format='channels_last')(enc_flat)
         
         # If you want, maybe put the pooled values through a non-linear Activation
-        enc_out = Activation("linear")(enc_pooled)
+        enc_out = Activation("relu")(enc_pooled)
+
+
 
         encoder = Model(inputs=[i], outputs=[enc_out])
 
@@ -612,13 +610,13 @@ class Autoencoder():
 
         autoencoder = Model(i, reconstruction)
 
-        adam = optimizers.Adam(lr=lr, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0, amsgrad=True)
+        adam = optimizers.Adam(learning_rate=lr, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0, amsgrad=True)
         
         autoencoder.compile(loss=loss, optimizer=adam, metrics=[loss])
-        if verbose > 1:
-            print(encoder.summary())
-            print(decoder.summary())
-            print(autoencoder.summary())
+        
+        print(encoder.summary())
+        print(decoder.summary())
+        print(autoencoder.summary())
         
         return encoder, decoder, autoencoder 
         
