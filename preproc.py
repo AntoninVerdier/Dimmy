@@ -65,10 +65,10 @@ def load_file(file, mod=None):
 	return spec
 
 def load_unique_file(arg, mod=None, cropmid=True):
-	path, mod = arg
-	sample, samplerate = librosa.load(os.path.join(path), sr=192000)
-	sample = librosa.resample(sample, samplerate, 64000)
-	samplerate = 64e3
+	path = arg
+	sample, samplerate = librosa.load(os.path.join(path), sr=64000)
+	#sample = librosa.resample(sample, samplerate, 64000)
+	#samplerate = 64e3
 
 	f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=512, noverlap=256)
 

@@ -52,6 +52,8 @@ parser.add_argument('--batch_size', '-b', type=int,
                     help='Choose batch size')
 parser.add_argument('--callbacks', '-c', action='store_true',
                     help='Choose if there is a tensorboard callback')
+parser.add_argument('--max_n', '-mn', type=int, default=100,
+                    help='Number of led to be lit up')
 args = parser.parse_args()
 
 # Tensorboard for weight and traingin evaluation
@@ -71,40 +73,38 @@ if args.callbacks:
 
 
 if args.train:
-    X_train = np.load(open('deepen_train.pkl', 'rb'), allow_pickle=True)
-    X_train_c = np.load(open('deepen_train.pkl', 'rb'), allow_pickle=True)
+    X_train = np.load(open('heardat_noise_datasetv2_60.pkl', 'rb'), allow_pickle=True)
+    X_train_c = np.load(open('heardat_clean_datasetv2_60.pkl', 'rb'), allow_pickle=True)
 
     print(X_train.shape)
-
-    X_valid = np.load(open('deepen_validate.pkl', 'rb'), allow_pickle=True)
-    X_valid_c = np.load(open('deepen_validate.pkl', 'rb'), allow_pickle=True)
 
     # Select the desired portion of the data and shuffle it
     shuffle_mask = np.random.choice(X_train.shape[0], int(args.data_size/100 * X_train.shape[0]), replace=False)
     X_train = X_train[shuffle_mask]
     X_train_c = X_train_c[shuffle_mask]
+    print(X_train.shape)
 
-    shuffle_mask = np.random.choice(X_valid.shape[0], int(args.data_size/100 * X_valid.shape[0]), replace=False)
-    X_valid = X_valid[shuffle_mask]
-    X_valid_c = X_valid_c[shuffle_mask]
 
     if args.network: # This to enable fair splitting for convolution
-      # X_train = X_train[:, :, :112]
-      # X_train_c = X_train_c[:, :, :112]
-      input_shape = (128, 376)
-      X_train = X_train[:, :, :376]
-      X_train_c = X_train_c[:, :, :376]
-      X_valid = X_valid[:, :, :376]
-      X_valid_c = X_valid_c[:, :, :376]
+      X_train = X_train[:, :, :112]
+      X_train_c = X_train_c[:, :, :112]
 
-      print(X_train.shape)
+      # print(X_train.shape)
+      # X_train = X_train[:, :31920]
+      # X_train = X_train.reshape(X_train.shape[0], 31920, 1)
 
-      # input_shape = (31920,)
+      # X_train_c = X_train_c[:, :31920]
+      # X_train_c = X_train_c.reshape(X_train_c.shape[0], 31920, 1)
+      # print(X_train.shape)
 
 
-    #X_train, X_valid, X_train_c, X_valid_c = train_test_split(X_train, X_train_c, test_size=0.2, shuffle=True)
 
-    auto = Autoencoder('{net}'.format(net=args.network if args.network else 'dense'), input_shape, params.latent_size)
+      input_shape = (128, 112)
+
+
+    X_train, X_valid, X_train_c, X_valid_c = train_test_split(X_train, X_train_c, test_size=0.2, shuffle=True)
+
+    auto = Autoencoder('{net}'.format(net=args.network if args.network else 'dense'), input_shape, params.latent_size, max_n=args.max_n)
 
     if "tune" in args.network:
       tuner = auto.get_model()
@@ -134,7 +134,7 @@ if args.train:
                               epochs=params.epochs, 
                               batch_size=args.batch_size if args.batch_size else 32)
 
-    ts = int(datetime.datetime.now().timestamp())
+    ts = str(int(datetime.datetime.now().timestamp())) + '_' + str(int(args.max_n))
     autoencoder.save(os.path.join(paths.path2Models, 'Autoencoder_model_{}_{}'.format(args.network, ts)))
     encoder.save(os.path.join(paths.path2Models, 'Encoder_model_{}_{}'.format(args.network, ts)))
     decoder.save(os.path.join(paths.path2Models, 'Decoder_model_{}_{}'.format(args.network, ts)))
@@ -144,12 +144,20 @@ if args.train:
 if args.predict:
 
   autoencoder = load_model(os.path.join(paths.path2Models,'Autoencoder_model_{}'.format(args.network)))
-  print(autoencoder.summary())
   encoder = load_model(os.path.join(paths.path2Models,'Encoder_model_{}'.format(args.network)))
   decoder = load_model(os.path.join(paths.path2Models,'Decoder_model_{}'.format(args.network)))  
+  print(encoder.summary())
+  
+  sounds_to_encode = '/home/user/Documents/Antonin/Dimmy/Data/SoundsHearlight'
 
-  tf.keras.utils.plot_model(autoencoder, to_file='autoencoder_deepen.png', show_shapes=True, expand_nested=True, dpi=300)
-
+  for i, f in track(enumerate(n.natsorted(os.listdir(sounds_to_encode))), total=len(os.listdir(sounds_to_encode))):
+    X_test = proc.load_unique_file(os.path.join(sounds_to_encode, f), mod='log', cropmid=True).reshape(1, 128, 126)
+    X_test = X_test[:, :, :112]
+    X_test = np.expand_dims(X_test, 3)
+    print(X_test.shape)
+    latent_repre = encoder(X_test)
+    plt.imshow(latent_repre.reshape(10, 10))
+    plt.show()
 
 ##### DEEPEN TESTING #########
   # X_test = np.load('deepen_test.pkl', allow_pickle=True)
@@ -162,15 +170,6 @@ if args.predict:
   # plt.imshow(latent_repre[100].reshape(10, 10))
   # plt.show()
 ##############################
-
-  # sounds_to_encode = '/home/user/Documents/Antonin/Data_Deepen/raw_audio_test'
-  # #test_X = np.array([proc.load_raw_file((os.path.join(sounds_to_encode, f))) for i, f in enumerate(n.natsorted(os.listdir(sounds_to_encode)))])
-  # all_latent = []
-
-  # for i, f in track(enumerate(n.natsorted(os.listdir(sounds_to_encode))), total=len(os.listdir(sounds_to_encode))):
-  #   X_test = proc.load_unique_file((os.path.join(sounds_to_encode, f), 'log')).reshape(1, 128, 377, 1)
-  #   X_test = X_test[:, :, :376, :]
-
 
 
 

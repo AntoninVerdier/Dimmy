@@ -33,6 +33,8 @@ from tensorflow.keras import layers
 from tensorflow.python.ops.numpy_ops import np_config
 np_config.enable_numpy_behavior()
 
+import matplotlib.pyplot as plt
+
 
 
 # Could be useful to implement talos library for gidsearch to run on the weekend
@@ -119,7 +121,7 @@ class DenseMax(Layer):
                  activity_regularizer=None,
                  kernel_constraint=None,
                  bias_constraint=None,
-                 max_n=None,
+                 max_n=100,
                  lambertian=None,
                  **kwargs):
         if 'input_shape' not in kwargs and 'input_dim' in kwargs:
@@ -176,7 +178,7 @@ class DenseMax(Layer):
 
         # Maybe useful to store filter in object to study evolution after
         sorted_output = tnp.sort(output)
-        threshold_for_each_batch = sorted_output[:, -self.max_n]
+        threshold_for_each_batch = sorted_output[:, -(self.max_n + 1)]
         filter_bool = tnp.transpose(tnp.greater(tnp.transpose(output), threshold_for_each_batch))
         output = tnp.multiply(output, filter_bool)
 
@@ -195,11 +197,12 @@ class DenseMax(Layer):
 
 class Autoencoder():
     # This class should return the required autoencoder architecture
-    def __init__(self, model, input_shape, latent_dim, dataset_type='log'):
+    def __init__(self, model, input_shape, latent_dim, dataset_type='log', max_n=None):
         self.model = model
         self.input_shape = input_shape
         self.latent_dim = latent_dim
         self.dataset_type = dataset_type
+        self.max_n = max_n
 
     def get_model(self):
         if self.model == 'dense':
@@ -209,7 +212,7 @@ class Autoencoder():
         elif self.model == 'densebin':
             return self.__dense_with_constraints()
         elif self.model == 'conv_simple':
-            return self.__conv_simple()
+            return self.__conv_simple(max_n=self.max_n)
         elif self.model == 'conv_vae':
             return self.__conv_vae()
         elif self.model == 'conv_simple_test':
@@ -298,7 +301,7 @@ class Autoencoder():
         return encoder, decoder, autoencoder
 
 
-    def __conv_simple(self):
+    def __conv_simple(self, max_n=100):
 
         opt = keras.optimizers.Adam(learning_rate=0.0001)
 
@@ -317,7 +320,13 @@ class Autoencoder():
         kernel_weights = np.repeat(kernel_weights, 1, axis=-1)
         kernel_weights = np.expand_dims(kernel_weights, axis=-1)
 
-        gaussian_blur = Conv2D(1, (kernel_size, kernel_size), use_bias=False, padding='same')
+        def gaussian_blur_filter(shape, dtype=None):
+            f = np.array(kernel_weights)
+
+            assert f.shape == shape
+            return K.variable(f, dtype='float32')
+
+        gaussian_blur = Conv2D(1, kernel_size, use_bias=False, kernel_initializer=gaussian_blur_filter ,padding='same', trainable=False)
 
 
         encoder = Sequential()
@@ -331,7 +340,12 @@ class Autoencoder():
         encoder.add(MaxPooling2D((2, 2), padding="same"))
         encoder.add(Conv2D(48, kernel_size=7, padding='same', activation='relu'))
         encoder.add(Flatten())
-        encoder.add(DenseMax(self.latent_dim, max_n=100, lambertian=False, kernel_constraint=UnitNorm()))
+        encoder.add(DenseMax(self.latent_dim, max_n=max_n, lambertian=False, kernel_constraint=UnitNorm()))
+
+        # Enable only when gaussian blurring
+        # encoder.add(Reshape((10, 10, 1)))
+        # encoder.add(gaussian_blur)
+        # encoder.add(Reshape((100,)))
 
 
         encoder.compile(optimizer=opt, loss='mse')
@@ -343,11 +357,13 @@ class Autoencoder():
         decoder = Sequential()
         decoder.add(InputLayer((100)))
         # #decoder.add(Discretization(num_bins=10, epsilon=0.01)) # Need to check if binning is good, i.e what is the range of input data
-        # decoder.add(Reshape((10, 10, 1)))
-        # decoder.add(gaussian_blur)
-        # decoder.add(Reshape((100,)))
-        decoder.add(Dense(16*47*48))
-        decoder.add(Reshape((16, 47, 48)))
+        
+        decoder.add(Reshape((10, 10, 1)))
+        decoder.add(gaussian_blur)
+        decoder.add(Reshape((100,)))
+        
+        decoder.add(Dense(16*14*48))
+        decoder.add(Reshape((16, 14, 48)))
         decoder.add(Conv2DTranspose(48, 7, strides=1, activation="relu", padding="same"))
         decoder.add(UpSampling2D((2, 2)))
         decoder.add(Conv2DTranspose(48, 5, strides=1, activation="relu", padding="same"))
@@ -361,8 +377,6 @@ class Autoencoder():
 
         print(encoder.summary())
         decoder.compile(optimizer=opt, loss='mse')
-        # gaussian_blur.set_weights([kernel_weights])
-        # gaussian_blur.trainable = False
 
         print(decoder.summary())
 
@@ -561,7 +575,7 @@ class Autoencoder():
         dropout_rate = 0.00
         filters_conv1d = 32
         activation_conv1d = 'linear'
-        latent_sample_rate = 84
+        latent_sample_rate = 8
         pooler = AveragePooling1D
         lr = 0.001
         conv_kernel_init = 'glorot_normal'
@@ -570,7 +584,7 @@ class Autoencoder():
                         
         tensorflow.keras.backend.clear_session()
         sampling_factor = latent_sample_rate
-        i = Input(batch_shape=(None, None, ts_dimension))
+        i = Input(batch_shape=(None, 31920, ts_dimension))
 
         # Put signal through TCN. Output-shape: (batch,sequence length, nb_filters)
         tcn_enc = TCN(nb_filters=nb_filters, kernel_size=kernel_size, nb_stacks=nb_stacks, dilations=dilations, 
