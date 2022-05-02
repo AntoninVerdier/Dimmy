@@ -332,15 +332,15 @@ class Autoencoder():
         encoder = Sequential()
         encoder.add(InputLayer((*self.input_shape, 1)))
 
-        encoder.add(Conv2D(96, kernel_size=11, padding='same', activation='relu'))
-        encoder.add(MaxPooling2D((2, 2), padding="same"))
-        encoder.add(Conv2D(64, kernel_size=5, padding='same', activation='relu'))
-        encoder.add(MaxPooling2D((2, 2), padding="same"))
-        encoder.add(Conv2D(64, kernel_size=5, padding='same', activation='relu'))
-        encoder.add(MaxPooling2D((2, 2), padding="same"))
-        encoder.add(Conv2D(48, kernel_size=7, padding='same', activation='relu'))
+        encoder.add(Conv2D(96, kernel_size=11, padding='same', activation='relu', name='E_conv_1'))
+        encoder.add(MaxPooling2D((2, 2), padding="same", name='E_pool_1'))
+        encoder.add(Conv2D(64, kernel_size=5, padding='same', activation='relu', name='E_conv_2'))
+        encoder.add(MaxPooling2D((2, 2), padding="same", name='E_pool_2'))
+        encoder.add(Conv2D(64, kernel_size=5, padding='same', activation='relu', name='E_conv_3'))
+        encoder.add(MaxPooling2D((2, 2), padding="same", name='E_pool_3'))
+        encoder.add(Conv2D(48, kernel_size=7, padding='same', activation='relu', name='E_conv_4'))
         encoder.add(Flatten())
-        encoder.add(DenseMax(self.latent_dim, max_n=max_n, lambertian=False, kernel_constraint=UnitNorm()))
+        encoder.add(DenseMax(self.latent_dim, max_n=max_n, lambertian=False, kernel_constraint=UnitNorm(), name='Dense_maxn'))
 
         # Enable only when gaussian blurring
         # encoder.add(Reshape((10, 10, 1)))
@@ -364,15 +364,15 @@ class Autoencoder():
         
         decoder.add(Dense(16*14*48))
         decoder.add(Reshape((16, 14, 48)))
-        decoder.add(Conv2DTranspose(48, 7, strides=1, activation="relu", padding="same"))
-        decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2DTranspose(48, 5, strides=1, activation="relu", padding="same"))
-        decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2DTranspose(64, 5, strides=1, activation="relu", padding="same"))
-        decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2DTranspose(96, 9, strides=1, activation="relu", padding="same"))
+        decoder.add(Conv2DTranspose(48, 7, strides=1, activation="relu", padding="same", name='D_conv_1'))
+        decoder.add(UpSampling2D((2, 2), name='D_upsamp_1'))
+        decoder.add(Conv2DTranspose(48, 5, strides=1, activation="relu", padding="same", name='D_conv_2'))
+        decoder.add(UpSampling2D((2, 2), name='D_upsamp_2'))
+        decoder.add(Conv2DTranspose(64, 5, strides=1, activation="relu", padding="same", name='D_conv_3'))
+        decoder.add(UpSampling2D((2, 2), name='D_upsamp_3'))
+        decoder.add(Conv2DTranspose(96, 9, strides=1, activation="relu", padding="same", name='D_conv_4'))
 
-        decoder.add(Conv2D(1, (1, 1), activation="relu", padding="same"))
+        decoder.add(Conv2D(1, (1, 1), activation="relu", padding="same", name='output'))
 
 
         print(encoder.summary())
