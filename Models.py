@@ -26,6 +26,8 @@ import tensorflow.experimental.numpy as tnp
 # from AE import Sampling
 # from AE import VAE
 
+from sklearn import preprocessing as p
+
 
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -320,13 +322,17 @@ class Autoencoder():
         kernel_weights = np.repeat(kernel_weights, 1, axis=-1)
         kernel_weights = np.expand_dims(kernel_weights, axis=-1)
 
+        plt.imshow(kernel_weights.reshape(3, 3), cmap='Blues')
+        plt.savefig('kernel_filter.svg')
+        plt.show()
+
         def gaussian_blur_filter(shape, dtype=None):
             f = np.array(kernel_weights)
 
             assert f.shape == shape
             return K.variable(f, dtype='float32')
 
-        gaussian_blur = Conv2D(1, kernel_size, use_bias=False, kernel_initializer=gaussian_blur_filter ,padding='same', trainable=False)
+        gaussian_blur = Conv2D(1, kernel_size, use_bias=False, kernel_initializer=gaussian_blur_filter, padding='same', trainable=False, name='gaussian_blur')
 
 
         encoder = Sequential()
@@ -358,9 +364,9 @@ class Autoencoder():
         decoder.add(InputLayer((100)))
         # #decoder.add(Discretization(num_bins=10, epsilon=0.01)) # Need to check if binning is good, i.e what is the range of input data
         
-        decoder.add(Reshape((10, 10, 1)))
-        decoder.add(gaussian_blur)
-        decoder.add(Reshape((100,)))
+        # decoder.add(Reshape((10, 10, 1)))
+        # decoder.add(gaussian_blur)
+        # decoder.add(Reshape((100,)))
         
         decoder.add(Dense(16*14*48))
         decoder.add(Reshape((16, 14, 48)))

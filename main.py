@@ -9,6 +9,7 @@ import natsort as n
 import pickle as pkl
 import librosa
 import scipy.io as sio
+from sklearn import preprocessing as p
 
 import pandas as pd
 import tensorflow as tf
@@ -26,6 +27,11 @@ from rich.progress import track
 
 from sklearn.manifold import TSNE
 
+import visualkeras
+from PIL import ImageFont
+import matplotlib
+
+
 # from AE import Sampling
 # from AE import VAE
 import preproc as proc
@@ -35,6 +41,12 @@ import settings as s
 
 # TCN utilities
 import utils_tcn as utcn
+
+
+from collections import defaultdict
+
+
+
 paths = s.paths()
 params = s.params()
 
@@ -54,6 +66,8 @@ parser.add_argument('--callbacks', '-c', action='store_true',
                     help='Choose if there is a tensorboard callback')
 parser.add_argument('--max_n', '-mn', type=int, default=100,
                     help='Number of led to be lit up')
+parser.add_argument('--visualize', '-v', action='store_true', 
+                    help='flag to visualize a network')
 args = parser.parse_args()
 
 # Tensorboard for weight and traingin evaluation
@@ -147,17 +161,47 @@ if args.predict:
   encoder = load_model(os.path.join(paths.path2Models,'Encoder_model_{}'.format(args.network)))
   decoder = load_model(os.path.join(paths.path2Models,'Decoder_model_{}'.format(args.network)))  
   print(encoder.summary())
+  print(decoder.summary())
   
   sounds_to_encode = '/home/user/Documents/Antonin/Dimmy/Data/SoundsHearlight'
 
   for i, f in track(enumerate(n.natsorted(os.listdir(sounds_to_encode))), total=len(os.listdir(sounds_to_encode))):
+    print(f)
     X_test = proc.load_unique_file(os.path.join(sounds_to_encode, f), mod='log', cropmid=True).reshape(1, 128, 126)
     X_test = X_test[:, :, :112]
     X_test = np.expand_dims(X_test, 3)
     print(X_test.shape)
     latent_repre = encoder(X_test)
-    plt.imshow(latent_repre.reshape(10, 10))
-    plt.show()
+
+    plt.imshow(p.normalize(latent_repre.reshape(10, 10)), cmap='Blues')
+    plt.colorbar()
+    plt.savefig('latent_repre.svg')
+    plt.close()
+    blurred_output = Model(inputs=decoder.input, outputs=decoder.get_layer('gaussian_blur').output)
+    
+
+    blurred = blurred_output(latent_repre)    
+
+    plt.imshow(p.normalize(blurred.reshape(10, 10)), cmap='Blues')
+    plt.savefig('blurred.svg')
+    plt.close()
+    break;
+
+if args.visualize:
+  autoencoder = load_model(os.path.join(paths.path2Models,'Autoencoder_model_{}'.format(args.network)))
+  encoder = load_model(os.path.join(paths.path2Models,'Encoder_model_{}'.format(args.network)))
+  decoder = load_model(os.path.join(paths.path2Models,'Decoder_model_{}'.format(args.network)))
+
+  from tensorflow.keras.layers import Dense, Conv2D, Flatten, Reshape, MaxPooling2D, UpSampling2D, Conv2DTranspose
+  from Models import DenseMax
+
+
+  font = ImageFont.truetype("Arial.ttf", 26)
+  visualkeras.layered_view(encoder, 'encoder.png', legend=True, font=font)
+  visualkeras.layered_view(decoder, 'decoder.png', legend=True, font=font)
+
+
+
 
 ##### DEEPEN TESTING #########
   # X_test = np.load('deepen_test.pkl', allow_pickle=True)
