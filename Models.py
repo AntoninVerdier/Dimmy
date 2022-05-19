@@ -322,9 +322,9 @@ class Autoencoder():
         kernel_weights = np.repeat(kernel_weights, 1, axis=-1)
         kernel_weights = np.expand_dims(kernel_weights, axis=-1)
 
-        plt.imshow(kernel_weights.reshape(3, 3), cmap='Blues')
-        plt.savefig('kernel_filter.svg')
-        plt.show()
+        # plt.imshow(kernel_weights.reshape(3, 3), cmap='Blues')
+        # plt.savefig('kernel_filter.svg')
+        # plt.show()
 
         def gaussian_blur_filter(shape, dtype=None):
             f = np.array(kernel_weights)
@@ -364,9 +364,9 @@ class Autoencoder():
         decoder.add(InputLayer((100)))
         # #decoder.add(Discretization(num_bins=10, epsilon=0.01)) # Need to check if binning is good, i.e what is the range of input data
         
-        # decoder.add(Reshape((10, 10, 1)))
-        # decoder.add(gaussian_blur)
-        # decoder.add(Reshape((100,)))
+        decoder.add(Reshape((10, 10, 1)))
+        decoder.add(gaussian_blur)
+        decoder.add(Reshape((100,)))
         
         decoder.add(Dense(16*14*48))
         decoder.add(Reshape((16, 14, 48)))

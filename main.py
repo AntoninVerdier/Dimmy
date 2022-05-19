@@ -126,8 +126,7 @@ if args.predict:
   # Load model when provided with timstamp in inline command
   autoencoder = load_model(os.path.join(paths.path2Models,'Autoencoder_model_{}'.format(args.network)))
   encoder = load_model(os.path.join(paths.path2Models,'Encoder_model_{}'.format(args.network)))
-  decoder = load_model(os.path.join(paths.path2Models,'Decoder_model_{}'.format(args.network)))  imshow(p.normalize(blurred.reshape(10, 10)), cmap='Blues')
-  
+  decoder = load_model(os.path.join(paths.path2Models,'Decoder_model_{}'.format(args.network)))
   print(encoder.summary())
   print(decoder.summary())
   
@@ -139,34 +138,41 @@ if args.predict:
     print(f)
     # Load soundfile and compute spectrogram
     X_test = proc.load_unique_file(os.path.join(sounds_to_encode, f), mod='log', cropmid=True).reshape(1, 128, 126)
-    X_test = X_test[:, :, :input_shape[1]]
+    X_test = X_test[:, :, :112]
     X_test = np.expand_dims(X_test, 3)
     
     # Get prediction
     latent_repre = encoder(X_test)
+    np.save(os.path.join('Latent', '{}_latent.npy'.format(f[:-4])), latent_repre.reshape(100))
+
+    final_spec = decoder(latent_repre)
+    #np.save(os.path.join('Latent', '{}_spec.npy'.format(f[:-4])), final_spec)
+    plt.imshow(final_spec.reshape(128, 112))
+    plt.close()
+    #plt.show()
 
 
     # Plot latent representation as an intensity pattern
     plt.imshow(p.normalize(latent_repre.reshape(10, 10)), cmap='Blues')
     plt.colorbar()
-    plt.savefig('latent_repre.svg')
+    plt.savefig('latent_repre_{}.svg'.format(f))
     plt.close()
     
     # Extract blurred representation from early intermediate layer in decoder
-    blurred_output = Model(inputs=decoder.input, outputs=decoder.get_layer('gaussian_blur').output)
-    blurred = blurred_output(latent_repre)    
+    # blurred_output = Model(inputs=decoder.input, outputs=decoder.get_layer('gaussian_blur').output)
+    # blurred = blurred_output(latent_repre)    
 
-    plt.imshow(p.normalize(blurred.reshape(10, 10)), cmap='Blues')
-    plt.savefig('blurred.svg')
-    plt.close()
+    # plt.imshow(p.normalize(blurred.reshape(10, 10)), cmap='Blues')
+    # plt.savefig('blurred.svg')
+    # plt.close()
 
-    # Visualize projection pattern side by side
-    fig, axs = plt.subplots(2)
-    plt.title(f[:-4])
-    axs[0].imshow(p.normalize(latent_repre.reshape(10, 10)), cmap='Blues')
-    axs[1].imshow(p.normalize(blurred.reshape(10, 10)), cmap='Blues')
-    plt.show()
-    plt.close()
+    # # Visualize projection pattern side by side
+    # fig, axs = plt.subplots(2)
+    # plt.title(f[:-4])
+    # axs[0].imshow(p.normalize(latent_repre.reshape(10, 10)), cmap='Blues')
+    # axs[1].imshow(p.normalize(blurred.reshape(10, 10)), cmap='Blues')
+    # #plt.show()
+    # plt.close()
 
 if args.visualize:
   # Use visual keras to have a quick view of the model architecture
