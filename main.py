@@ -69,7 +69,8 @@ if args.train:
     # Distinguish between noisy input and clean reconstruction target
     X_train = np.load(open('heardat_noise_datasetv2_60.pkl', 'rb'), allow_pickle=True)
     X_train_c = np.load(open('heardat_clean_datasetv2_60.pkl', 'rb'), allow_pickle=True)
-
+    toeplitz = np.load(os.path.join('toeplitz', 'toeplitz_100.npy'))
+    test_toeplitz = np.load(os.path.join('toeplitz', 'toeplitz.pkl'), allow_pickle=True)
 
     # Select the desired portion of the data and shuffle it
     shuffle_mask = np.random.choice(X_train.shape[0], int(args.data_size/100 * X_train.shape[0]), replace=False)
@@ -88,36 +89,24 @@ if args.train:
     # Create network class
     auto = Autoencoder('{net}'.format(net=args.network if args.network else 'dense'), input_shape, params.latent_size, max_n=args.max_n)
 
-    # Use if model is created with tune tag, performing hyperparameter search 
-    if "tune" in args.network:
-      tuner = auto.get_model()
-      tuner.search(X_train, X_train_c,
-              validation_data=(X_valid, X_valid_c),
-              epochs=params.epochs,
-              batch_size=args.batch_size)
-      best_model = tuner.get_best_models()[0]
-
     # Retrive compiled model from network class
-    encoder, decoder, autoencoder = auto.get_model()
+    autoencoder = auto.get_model()
 
     # Launch training with callbacks to tensorboard if specified in inline command
-    if args.callbacks:
-      history = autoencoder.fit(X_train, X_train_c,
-                                validation_data=(X_valid, X_valid_c),
-                                epochs=params.epochs, 
-                                batch_size=args.batch_size if args.batch_size else 32,
-                                callbacks=keras_callbacks)
-    else:
-      history = autoencoder.fit(X_train, X_train_c,
+
+    history = autoencoder.fit(X_train, X_train_c,
                               validation_data=(X_valid, X_valid_c),
                               epochs=params.epochs, 
-                              batch_size=args.batch_size if args.batch_size else 32)
+                              batch_size=args.batch_size if args.batch_size else 32,
+                              callbacks=keras_callbacks)
+
+
 
     # Add a timestamp to log files and model name so file is unique
     ts = str(int(datetime.datetime.now().timestamp())) + '_' + str(int(args.max_n))
     autoencoder.save(os.path.join(paths.path2Models, 'Autoencoder_model_{}_{}'.format(args.network, ts)))
-    encoder.save(os.path.join(paths.path2Models, 'Encoder_model_{}_{}'.format(args.network, ts)))
-    decoder.save(os.path.join(paths.path2Models, 'Decoder_model_{}_{}'.format(args.network, ts)))
+    # encoder.save(os.path.join(paths.path2Models, 'Encoder_model_{}_{}'.format(args.network, ts)))
+    # decoder.save(os.path.join(paths.path2Models, 'Decoder_model_{}_{}'.format(args.network, ts)))
 
     pkl.dump(history.history, open(os.path.join(paths.path2Models, 'model_history_{}.pkl'.format(ts)), 'wb'))
 
@@ -143,10 +132,10 @@ if args.predict:
     
     # Get prediction
     latent_repre = encoder(X_test)
-    np.save(os.path.join('Latent', 'Stims', '{}_latent.npy'.format(f[:-4])), latent_repre.reshape(100))
+    np.save(os.path.join('Latent', '{}_latent.npy'.format(f[:-4])), latent_repre.reshape(100))
 
     final_spec = decoder(latent_repre)
-    np.save(os.path.join('Latent', 'Specs', '{}_spec.npy'.format(f[:-4])), final_spec)
+    #np.save(os.path.join('Latent', '{}_spec.npy'.format(f[:-4])), final_spec)
     plt.imshow(final_spec.reshape(128, 112))
     plt.close()
     #plt.show()
@@ -159,10 +148,8 @@ if args.predict:
     plt.close()
     
     # Extract blurred representation from early intermediate layer in decoder
-    blurred_output = Model(inputs=decoder.input, outputs=decoder.get_layer('gaussian_blur').output)
-    blurred = blurred_output(latent_repre) 
-    np.save(os.path.join('Latent', 'Blurred', '{}_latent_blurred.npy'.format(f[:-4])), blurred[0, :, :, 0].reshape(100))
-
+    # blurred_output = Model(inputs=decoder.input, outputs=decoder.get_layer('gaussian_blur').output)
+    # blurred = blurred_output(latent_repre)    
 
     # plt.imshow(p.normalize(blurred.reshape(10, 10)), cmap='Blues')
     # plt.savefig('blurred.svg')
