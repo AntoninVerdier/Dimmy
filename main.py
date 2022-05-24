@@ -143,10 +143,10 @@ if args.predict:
     
     # Get prediction
     latent_repre = encoder(X_test)
-    np.save(os.path.join('Latent', '{}_latent.npy'.format(f[:-4])), latent_repre.reshape(100))
+    np.save(os.path.join('Latent', 'Stims', '{}_latent.npy'.format(f[:-4])), latent_repre.reshape(100))
 
     final_spec = decoder(latent_repre)
-    #np.save(os.path.join('Latent', '{}_spec.npy'.format(f[:-4])), final_spec)
+    np.save(os.path.join('Latent', 'Specs', '{}_spec.npy'.format(f[:-4])), final_spec)
     plt.imshow(final_spec.reshape(128, 112))
     plt.close()
     #plt.show()
@@ -159,8 +159,10 @@ if args.predict:
     plt.close()
     
     # Extract blurred representation from early intermediate layer in decoder
-    # blurred_output = Model(inputs=decoder.input, outputs=decoder.get_layer('gaussian_blur').output)
-    # blurred = blurred_output(latent_repre)    
+    blurred_output = Model(inputs=decoder.input, outputs=decoder.get_layer('gaussian_blur').output)
+    blurred = blurred_output(latent_repre) 
+    np.save(os.path.join('Latent', 'Blurred', '{}_latent_blurred.npy'.format(f[:-4])), blurred[0, :, :, 0].reshape(100))
+
 
     # plt.imshow(p.normalize(blurred.reshape(10, 10)), cmap='Blues')
     # plt.savefig('blurred.svg')

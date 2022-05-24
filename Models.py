@@ -307,13 +307,14 @@ class Autoencoder():
 
         opt = keras.optimizers.Adam(learning_rate=0.0001)
 
-        kernel_size = 3
+        kernel_size = 5
 
         x, y = np.meshgrid(np.linspace(-1, 1, kernel_size), np.linspace(-1, 1, kernel_size))
         dst = np.sqrt(x*x + y*y)
 
         # Considering 1 px = 150um
-        sigma = np.sqrt(np.log(2)/2)
+        #sigma = np.sqrt(np.log(2)/2) # This is the wrong way around
+        sigma = 4 / (3 * np.sqrt(2 * np.log(2))) # This estimates half width to be 8/3 pixel (400um)
         muu = 0.000
 
         kernel_weights = np.exp(-((dst-muu)**2 / (2.0 * sigma**2)))
@@ -333,7 +334,6 @@ class Autoencoder():
             return K.variable(f, dtype='float32')
 
         gaussian_blur = Conv2D(1, kernel_size, use_bias=False, kernel_initializer=gaussian_blur_filter, padding='same', trainable=False, name='gaussian_blur')
-
 
         encoder = Sequential()
         encoder.add(InputLayer((*self.input_shape, 1)))

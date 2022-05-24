@@ -89,7 +89,7 @@ def load_data_array_multi(file_list, filename='dataset', mod=None):
 
 	dataset = []
 
-	paths = [(file, mod) for file in file_list]
+	paths = file_list#[(file, mod) for file in file_list]
 
 	with Pool() as p:
 		results = [p.apply_async(load_unique_file, args=(path, )) for path in paths]
@@ -115,7 +115,7 @@ def cosine_distance(arr, brr):
 
 if __name__ == '__main__':
 
-	pc = '/home/user/share/gaia/Data/Data_agmentation_CNN_Deepen/AugmentationFinal/Original140Sounds/raw_audio'
+	pc = '/home/user/Documents/Antonin/Dimmy/toeplitz/toeplitz'
 	#pn = '/home/user/Documents/Antonin/Dimmy/Noise_sounds_datasetv2_60'
 
 	# paths_noise = [os.path.join(pn, f) for f in os.listdir(pn)]
@@ -123,7 +123,8 @@ if __name__ == '__main__':
 	# paths_clean = [os.path.join(pc, f) for f in track(os.listdir(pc)) if os.path.basename(f) in basename_noise]
 	
 	paths = [os.path.join(pc, f) for f in os.listdir(pc)]
-	load_data_array_multi(paths, mod='log', filename='deepen_140_test_sounds.pkl')
+	print(paths)
+	load_data_array_multi(paths, mod='log', filename='/home/user/Documents/Antonin/Dimmy/toeplitz/toeplitz.pkl')
 	#load_data_array_multi(paths_clean, mod='log', filename='heardat_clean_datasetv2_60.pkl')
 
 
