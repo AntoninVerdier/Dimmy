@@ -127,44 +127,44 @@ class DenseMax(Layer):
 
         return base_config
 
-class SmoothEncoder(keras.Model):
+# class SmoothEncoder(keras.Model):
 
-    def __init__(self, inputs, outputs):
-        super().__init__(inputs, outputs)
-        self.true_freq_corr = np.load(os.path.join('toeplitz', 'toeplitz_100.npy')).reshape(1, 100, 100)
-        self.test_freq = np.load(os.path.join('toeplitz', 'toeplitz.pkl'), allow_pickle=True)[:, :, :112]
+#     def __init__(self, inputs, outputs):
+#         super().__init__(inputs, outputs)
+#         self.true_freq_corr = np.load(os.path.join('toeplitz', 'toeplitz_100.npy')).reshape(1, 100, 100)
+#         self.test_freq = np.load(os.path.join('toeplitz', 'toeplitz.pkl'), allow_pickle=True)[:, :, :112]
     
-    def train_step(self, data):
-        # Unpack the data. Its structure depends on your model and
-        # on what you pass to `fit()`.
-        x, y = data
+#     def train_step(self, data):
+#         # Unpack the data. Its structure depends on your model and
+#         # on what you pass to `fit()`.
+#         x, y = data
 
-        with tf.GradientTape() as tape:
-            y_pred = self(x, training=True)[0]  # Forward pass, get only final output
+#         with tf.GradientTape() as tape:
+#             y_pred = self(x, training=True)[0]  # Forward pass, get only final output
             
-            tested_freq = self(self.test_freq, training=False)[1] # Get output of encoded layer
+#             tested_freq = self(self.test_freq, training=False)[1] # Get output of encoded layer
 
 
-            corr = tf.reshape(tfp.stats.correlation(tf.transpose(tested_freq)), (1, 100, 100)) # Not the good correlation
-            tf.print(corr)
-            freq_loss = self.compiled_loss(tf.constant(self.true_freq_corr), corr, regularization_losses=self.losses)
-            #tf.print(freq_loss.shape)
+#             corr = tf.reshape(tfp.stats.correlation(tf.transpose(tested_freq)), (1, 100, 100)) # Not the good correlation
+#             tf.print(corr)
+#             freq_loss = self.compiled_loss(tf.constant(self.true_freq_corr), corr, regularization_losses=self.losses)
+#             #tf.print(freq_loss.shape)
 
 
-            # Compute the loss value
-            # (the loss function is configured in `compile()`)
-            loss = self.compiled_loss(y, y_pred, regularization_losses=self.losses) + 0.2*freq_loss
+#             # Compute the loss value
+#             # (the loss function is configured in `compile()`)
+#             loss = self.compiled_loss(y, y_pred, regularization_losses=self.losses) + 0.2*freq_loss
 
 
-        # Compute gradients
-        trainable_vars = self.trainable_variables
-        gradients = tape.gradient(loss, trainable_vars)
-        # Update weights
-        self.optimizer.apply_gradients(zip(gradients, trainable_vars))
-        # Update metrics (includes the metric that tracks the loss)
-        self.compiled_metrics.update_state(y, y_pred)
-        # Return a dict mapping metric names to current value
-        return {m.name: m.result() for m in self.metrics}
+#         # Compute gradients
+#         trainable_vars = self.trainable_variables
+#         gradients = tape.gradient(loss, trainable_vars)
+#         # Update weights
+#         self.optimizer.apply_gradients(zip(gradients, trainable_vars))
+#         # Update metrics (includes the metric that tracks the loss)
+#         self.compiled_metrics.update_state(y, y_pred)
+#         # Return a dict mapping metric names to current value
+#         return {m.name: m.result() for m in self.metrics}
 
 class Autoencoder():
     # This class should return the required autoencoder architecture
@@ -181,20 +181,30 @@ class Autoencoder():
 
     def __conv_simple(self, max_n=100):
 
-        def freq_smoothing_loss(y_true, y_pred):
-            true_freq_corr = np.load(os.path.join('toeplitz', 'toeplitz_100.npy')).reshape(10000)
-            test_freq = np.load(os.path.join('toeplitz', 'toeplitz.pkl'), allow_pickle=True)[:, :, :112]
-            print(y_pred.shape)  # this is of shpe (none, 100) 
-            # corrzlation matrix will need to be of shape (None, 100, 100) and be compared to true_freq_corr
-            # batch size is y_true.shape[0]
+        def fn_smoothing(y_true, y_pred):
+            true_freq_corr = np.load(os.path.join('toeplitz', 'toeplitz_100.npy')).reshape(100, 100)* 255
+            test_freq = np.load(os.path.join('toeplitz', 'toeplitz.pkl'), allow_pickle=True)[:, :, :112] * 255
 
-            corr = tfp.stats.correlation(y_pred, y_pred, event_axis=1)
+            pred_freq_corr = autoencoder(test_freq)[1]
 
-            corr = tf.reshape(corr, (10000,))
+            def t(a): return tf.transpose(a)
 
-                    #### Why loss is getting nan values ? ?????
-            return tnp.mean(true_freq_corr)-tnp.mean(corr)
-        
+            x = pred_freq_corr
+            mean_t = tf.reduce_mean(x, axis=1, keepdims=True)
+            #cov_t = x @ t(x)
+            cov_t = ((x-mean_t) @ t(x-mean_t))/(pred_freq_corr.shape[1]-1)
+            cov2_t = tf.linalg.diag(1/tf.sqrt(tf.linalg.diag_part(cov_t)))
+            cor = cov2_t @ cov_t @ cov2_t
+
+            # Fin how to compute autocorrelation matrix
+            loss = tf.keras.losses.mean_squared_error(true_freq_corr, cor)
+            # May need to return output with batch size 
+
+            return loss
+        def custom_mse_fn(y_true, y_pred):
+            squared_difference = tf.square(y_true - y_pred)
+            return tf.reduce_mean(squared_difference, axis=-1)
+                
 
         opt = keras.optimizers.Adam(learning_rate=0.0001)
 
@@ -250,9 +260,10 @@ class Autoencoder():
 
         decoded = Conv2D(1, (1, 1), activation="relu", padding="same", name='output')(x)
 
-        autoencoder = SmoothEncoder(inputs=inputs, outputs=[decoded, encoded])
+        autoencoder = Model(inputs=inputs, outputs=[decoded, encoded])
         
-        autoencoder.compile(optimizer='adam', loss='mse')
+        autoencoder.compile(optimizer='adam', loss=[custom_mse_fn, fn_smoothing], loss_weights=[0.8, 0.2])
+        
         return autoencoder
 
 

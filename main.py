@@ -69,8 +69,6 @@ if args.train:
     # Distinguish between noisy input and clean reconstruction target
     X_train = np.load(open('heardat_noise_datasetv2_60.pkl', 'rb'), allow_pickle=True)
     X_train_c = np.load(open('heardat_clean_datasetv2_60.pkl', 'rb'), allow_pickle=True)
-    toeplitz = np.load(os.path.join('toeplitz', 'toeplitz_100.npy'))
-    test_toeplitz = np.load(os.path.join('toeplitz', 'toeplitz.pkl'), allow_pickle=True)
 
     # Select the desired portion of the data and shuffle it
     shuffle_mask = np.random.choice(X_train.shape[0], int(args.data_size/100 * X_train.shape[0]), replace=False)
