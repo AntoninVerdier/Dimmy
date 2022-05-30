@@ -182,8 +182,8 @@ class Autoencoder():
     def __conv_simple(self, max_n=100):
 
         def fn_smoothing(y_true, y_pred):
-            true_freq_corr = np.load(os.path.join('toeplitz', 'toeplitz_100.npy')).reshape(100, 100)* 255
-            test_freq = np.load(os.path.join('toeplitz', 'toeplitz.pkl'), allow_pickle=True)[:, :, :112] * 255
+            true_freq_corr = np.load(os.path.join('toeplitz', 'toeplitz_100.npy')).reshape(100, 100)
+            test_freq = np.load(os.path.join('toeplitz', 'toeplitz.pkl'), allow_pickle=True)[:, :, :112] 
 
             pred_freq_corr = autoencoder(test_freq)[1]
 
@@ -262,7 +262,7 @@ class Autoencoder():
 
         autoencoder = Model(inputs=inputs, outputs=[decoded, encoded])
         
-        autoencoder.compile(optimizer='adam', loss=[custom_mse_fn, fn_smoothing], loss_weights=[0.8, 0.2])
+        autoencoder.compile(optimizer='adam', loss=[custom_mse_fn, fn_smoothing], loss_weights=[0.95, 0.05])
         
         return autoencoder
 

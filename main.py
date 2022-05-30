@@ -12,6 +12,8 @@ from tensorflow.keras.models import load_model, Model
 from tensorflow.keras.layers import Dense, Conv2D, Flatten, Reshape, MaxPooling2D, UpSampling2D, Conv2DTranspose
 from sklearn.model_selection import train_test_split
 
+from tensorflow.keras.callbacks import Callback
+
 import visualkeras
 import matplotlib
 from PIL import ImageFont
@@ -24,6 +26,7 @@ import settings as s
 import preproc as proc
 from Models import Autoencoder, DenseMax
 
+import tensorflow as tf
 
 # Define arguments for inline parsing
 paths = s.paths()
@@ -64,6 +67,33 @@ if args.callbacks:
   
 ]
 
+class MyLogger(Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        test_freq = np.load(os.path.join('toeplitz', 'toeplitz.pkl'), allow_pickle=True)[:, :, :112]
+
+        pred_freq_corr = autoencoder(test_freq)[1]
+
+        print(pred_freq_corr.numpy())
+
+        def t(a): return tf.transpose(a)
+
+        x = pred_freq_corr
+        mean_t = tf.reduce_mean(x, axis=1, keepdims=True)
+        #cov_t = x @ t(x)
+        cov_t = ((x-mean_t) @ t(x-mean_t))/(pred_freq_corr.shape[1]-1)
+        cov2_t = tf.linalg.diag(1/tf.sqrt(tf.linalg.diag_part(cov_t)))
+        cor = cov2_t @ cov_t @ cov2_t
+
+        print(np.max(cor), np.min(cor))
+
+        np.save(os.path.join('Callbacks', 'Dat', 'log_top_{}.npy'.format(epoch)), cor)
+        plt.imshow(cor, vmin=0, vmax=1)
+        plt.savefig(os.path.join('Callbacks', 'Img','log_top_{}.svg'.format(epoch)))
+        plt.close()
+        
+        # with open('log.txt', 'a+') as f:
+        #     f.write('%02d %.3f\n' % (epoch, logs['loss']))
+
 # Execute training if inline argument is passed
 if args.train:
     # Distinguish between noisy input and clean reconstruction target
@@ -81,6 +111,8 @@ if args.train:
       X_train = X_train[:, :, :input_shape[1]]
       X_train_c = X_train_c[:, :, :input_shape[1]]
 
+
+
     # Create a validation set
     X_train, X_valid, X_train_c, X_valid_c = train_test_split(X_train, X_train_c, test_size=0.2, shuffle=True)
 
@@ -96,7 +128,7 @@ if args.train:
                               validation_data=(X_valid, X_valid_c),
                               epochs=params.epochs, 
                               batch_size=args.batch_size if args.batch_size else 32,
-                              callbacks=keras_callbacks)
+                              callbacks=[MyLogger()])
 
 
 
