@@ -182,7 +182,7 @@ class Autoencoder():
     def __conv_simple(self, max_n=100):
 
         def fn_smoothing(y_true, y_pred):
-            true_freq_corr = np.load(os.path.join('toeplitz', 'toeplitz_100.npy')).reshape(100, 100)
+            true_freq_corr = np.load(os.path.join('toeplitz', 'topelitz_gaussian_cxe.npy'))
             test_freq = np.load(os.path.join('toeplitz', 'toeplitz.pkl'), allow_pickle=True)[:, :, :112] 
 
             pred_freq_corr = autoencoder(test_freq)[1]
@@ -201,9 +201,13 @@ class Autoencoder():
             # May need to return output with batch size 
 
             return loss
-        def custom_mse_fn(y_true, y_pred):
-            squared_difference = tf.square(y_true - y_pred)
-            return tf.reduce_mean(squared_difference, axis=-1)
+
+        def normalized_mse(y_true, y_pred):
+            loss = tf.keras.losses.mean_squared_error(y_true/255, y_pred/255)
+
+            return loss
+
+
                 
 
         opt = keras.optimizers.Adam(learning_rate=0.0001)
@@ -241,14 +245,14 @@ class Autoencoder():
         x = MaxPooling2D((2, 2), padding="same", name='E_pool_3')(x)
         x = Conv2D(48, kernel_size=7, padding='same', activation='relu', name='E_conv_4')(x)
         x = Flatten()(x)
-        encoded = DenseMax(self.latent_dim, max_n=max_n, lambertian=False, kernel_constraint=UnitNorm(), name='Dense_maxn')(x)
+        x = DenseMax(self.latent_dim, max_n=max_n, lambertian=False, kernel_constraint=UnitNorm(), name='Dense_maxn')(x)
         
 
-        x = Reshape((10, 10, 1))(encoded)
+        x = Reshape((10, 10, 1))(x)
         x = gaussian_blur(x)
-        x = Reshape((100,))(x)
+        encoded = Reshape((100,))(x)
         
-        x = Dense(16*14*48)(x)
+        x = Dense(16*14*48)(encoded)
         x = Reshape((16, 14, 48))(x)
         x = Conv2DTranspose(48, 7, strides=1, activation="relu", padding="same", name='D_conv_1')(x)
         x = UpSampling2D((2, 2), name='D_upsamp_1')(x)
@@ -262,7 +266,7 @@ class Autoencoder():
 
         autoencoder = Model(inputs=inputs, outputs=[decoded, encoded])
         
-        autoencoder.compile(optimizer='adam', loss=[custom_mse_fn, fn_smoothing], loss_weights=[0.95, 0.05])
+        autoencoder.compile(optimizer='adam', loss=[normalized_mse, fn_smoothing], loss_weights=[0.95, 0.05])
         
         return autoencoder
 
