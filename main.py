@@ -69,10 +69,7 @@ if args.callbacks:
     tensorboard
   
 ]
-
-
-        
-
+   
 # Execute training if inline argument is passed
 if args.train:
 
@@ -94,8 +91,6 @@ if args.train:
     # Distinguish between noisy input and clean reconstruction target
     X_train = np.load(open(input_dataset_file, 'rb'), allow_pickle=True)
     X_train_c = np.load(open(output_dataset_file, 'rb'), allow_pickle=True)
-
-    print(X_train.shape, X_train_c.shape)
 
     # Select the desired portion of the data and shuffle it
     shuffle_mask = np.random.choice(X_train.shape[0], int(args.data_size/100 * X_train.shape[0]), replace=False)
@@ -141,7 +136,7 @@ if args.train:
 
     class ToeplitzLogger(Callback):
       def on_epoch_end(self, epoch, logs=None):
-          test_freq = np.load(os.path.join('toeplitz', 'toeplitz.pkl'), allow_pickle=True)[:, :, :112]
+          test_freq = np.load(os.path.join('toeplitz', 'toeplitz_offset_136.pkl'), allow_pickle=True)[:, :, :120]
 
           pred_freq_corr = autoencoder(test_freq)[1]
 
