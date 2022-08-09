@@ -183,7 +183,7 @@ class Autoencoder():
 
         def fn_smoothing(y_true, y_pred):
             true_freq_corr = np.load(os.path.join('toeplitz', 'topelitz_gaussian_cxe.npy'))
-            test_freq = np.load(os.path.join('toeplitz', 'toeplitz.pkl'), allow_pickle=True)[:, :, :112] 
+            test_freq = np.load(os.path.join('toeplitz', 'toeplitz_offset_136.pkl'), allow_pickle=True)[:, :, :120]
 
             pred_freq_corr = autoencoder(test_freq)[1]
 
@@ -252,8 +252,8 @@ class Autoencoder():
         x = gaussian_blur(x)
         encoded = Reshape((100,))(x)
         
-        x = Dense(16*14*48)(encoded)
-        x = Reshape((16, 14, 48))(x)
+        x = Dense(int(self.input_shape[0]/8)*int(self.input_shape[1]/8)*48)(encoded)
+        x = Reshape((int(self.input_shape[0]/8), int(self.input_shape[1]/8), 48))(x)
         x = Conv2DTranspose(48, 7, strides=1, activation="relu", padding="same", name='D_conv_1')(x)
         x = UpSampling2D((2, 2), name='D_upsamp_1')(x)
         x = Conv2DTranspose(48, 5, strides=1, activation="relu", padding="same", name='D_conv_2')(x)
@@ -265,6 +265,7 @@ class Autoencoder():
         decoded = Conv2D(1, (1, 1), activation="relu", padding="same", name='output')(x)
 
         autoencoder = Model(inputs=inputs, outputs=[decoded, encoded])
+        print(autoencoder.summary())
         
         autoencoder.compile(optimizer='adam', loss=[normalized_mse, fn_smoothing], loss_weights=[0.95, 0.05])
         

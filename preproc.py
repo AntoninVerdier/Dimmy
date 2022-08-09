@@ -82,7 +82,7 @@ def load_unique_file(arg, mod=None, cropmid=True):
 		mag = mag
 
 	spec = np.array((mag - np.min(mag))/np.max(mag)*255, dtype=np.uint8)
-	spec = spec[:int(0.5* len(spec) + 2), :]
+	spec = spec[:136, :]
 	#dataset[i, :, :] = np.array(((mag - np.min(mag))/np.max(mag))*255, dtype=np.uint8)
 	return spec
 
@@ -117,18 +117,22 @@ def cosine_distance(arr, brr):
 
 if __name__ == '__main__':
 
-	pc = '/home/user/Documents/Antonin/Dimmy/Clean_sounds_datasetv2_60'
-	pn = '/home/user/Documents/Antonin/Dimmy/Noise_sounds_datasetv2_60'
+	#pc = '/home/user/Documents/Antonin/Dimmy/Clean_sounds_datasetv2_60'
+	#pn = '/home/user/Documents/Antonin/Dimmy/Noise_sounds_datasetv2_60'
+	toep = '/home/user/Documents/Antonin/Dimmy/toeplitz/toeplitz'
 
-	# paths_noise = [os.path.join(pn, f) for f in os.listdir(pn)]
-	# basename_noise = [os.path.basename(f) for f in os.listdir(pn)]
-	# paths_clean = [os.path.join(pc, f) for f in track(os.listdir(pc)) if os.path.basename(f) in basename_noise]
+	#paths_noise = [os.path.join(pn, f) for f in os.listdir(pn)]
+	#basename_noise = [os.path.basename(f) for f in os.listdir(pn)]
+	#paths_clean = [os.path.join(pc, f) for f in track(os.listdir(pc)) if os.path.basename(f) in basename_noise]
 	
-	paths_clean = [os.path.join(pc, f) for f in os.listdir(pc)]
-	paths_noise = [os.path.join(pc, f) for f in os.listdir(pn)]
-	#load_data_array_multi(paths, mod='log', filename='/home/user/Documents/Antonin/Dimmy/toeplitz/toeplitz.pkl')
-	load_data_array_multi(paths_clean, mod='log', filename='heardat_clean_datasetv2_60_offset.pkl')
-	load_data_array_multi(paths_noise, mod='log', filename='heardat_noise_datasetv2_60_offset.pkl')
+	#paths_clean = [os.path.join(pc, f) for f in os.listdir(pc)]
+	#paths_noise = [os.path.join(pc, f) for f in os.listdir(pn)]
+	paths = [os.path.join(toep, f) for f in os.listdir(toep)]
+
+	
+	load_data_array_multi(paths, mod='log', filename='/home/user/Documents/Antonin/Dimmy/toeplitz/toeplitz_offset_136.pkl')
+	#load_data_array_multi(paths_clean, mod='log', filename='heardat_clean_datasetv2_60_offset_136.pkl')
+	#load_data_array_multi(paths_noise, mod='log', filename='heardat_noise_datasetv2_60_offset_136.pkl')
 
 
 

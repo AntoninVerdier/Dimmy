@@ -89,11 +89,13 @@ if args.train:
       net_name, description = args.quicktest, args.quicktest
     
     # Datasets
-    input_dataset_file = 'heardat_noise_datasetv2_60.pkl'
-    output_dataset_file = 'heardat_clean_datasetv2_60.pkl'
+    input_dataset_file = 'heardat_noise_datasetv2_60_offset_136.pkl'
+    output_dataset_file = 'heardat_clean_datasetv2_60_offset_136.pkl'
     # Distinguish between noisy input and clean reconstruction target
     X_train = np.load(open(input_dataset_file, 'rb'), allow_pickle=True)
     X_train_c = np.load(open(output_dataset_file, 'rb'), allow_pickle=True)
+
+    print(X_train.shape, X_train_c.shape)
 
     # Select the desired portion of the data and shuffle it
     shuffle_mask = np.random.choice(X_train.shape[0], int(args.data_size/100 * X_train.shape[0]), replace=False)
@@ -102,9 +104,10 @@ if args.train:
     
     # This to enable fair splitting for convolution. Configured for spectrogram training
     if args.network: 
-      input_shape = (128, 112)
-      X_train = X_train[:, :, :input_shape[1]]
-      X_train_c = X_train_c[:, :, :input_shape[1]]
+
+      input_shape = (X_train.shape[1] - X_train.shape[1]%8, X_train.shape[2] - X_train.shape[2]%8)
+      X_train = X_train[:, :input_shape[0], :input_shape[1]]
+      X_train_c = X_train_c[:, :input_shape[0], :input_shape[1]]
 
 
     # Create a validation set
@@ -118,9 +121,9 @@ if args.train:
 
     # Create saving folder now so we can write callbacks in it
     today = today.strftime("%d%m%Y")
-    time = time.strftime("%H%M%S")
+    time_str = time.strftime("%H%M%S")
 
-    save_model_path = os.path.join(paths.path2Models, '{}_{}_{}'.format(today, time, net_name))
+    save_model_path = os.path.join(paths.path2Models, '{}_{}_{}'.format(today, time_str, net_name))
     if not os.path.exists(save_model_path):
       os.makedirs(save_model_path)
       os.makedirs(os.path.join(save_model_path, 'viz'))
@@ -140,7 +143,7 @@ if args.train:
       def on_epoch_end(self, epoch, logs=None):
           test_freq = np.load(os.path.join('toeplitz', 'toeplitz.pkl'), allow_pickle=True)[:, :, :112]
 
-          pred_freq_corr = autoencoder(test_freq, trainable=False)[1]
+          pred_freq_corr = autoencoder(test_freq)[1]
 
           def t(a): return tf.transpose(a)
 
@@ -159,8 +162,8 @@ if args.train:
     history = autoencoder.fit(X_train, X_train_c,
                               validation_data=(X_valid, X_valid_c),
                               epochs=params.epochs, 
-                              batch_size=args.batch_size if args.batch_size else 32),
-                              #callbacks=[ToeplitzLogger()])
+                              batch_size=args.batch_size if args.batch_size else 32,
+                              callbacks=[ToeplitzLogger()])
 
 
 
@@ -171,7 +174,6 @@ if args.train:
     
     td = datetime.datetime.now() - time
     training_time = '{}h {}m {}s'.format(td.seconds//3600, (td.seconds//60)%60, td.seconds%60)
-
 
     autoencoder.save(os.path.join(save_model_path, 'Autoencoder_model_{}_{}'.format(args.network, net_name)))
     # encoder.save(os.path.join(save_model_path, 'Encoder_model_{}_{}'.format(args.network, net_name)))
@@ -187,7 +189,7 @@ if args.train:
     args_dict['input_dataset_file'] = input_dataset_file
     args_dict['output_dataset_file'] = output_dataset_file
     args_dict['creation_date'] = today
-    args_dict['creation time'] = time
+    args_dict['creation time'] = time_str
     args_dict['training_time'] = training_time
     args_dict['epochs'] = params.epochs
     args_dict['blurring_kernel_size'] = autoencoder.get_layer('gaussian_blur').weights[0].shape[0]
