@@ -200,8 +200,8 @@ if args.train:
     # Loop trough each sound and output the latent representation
     for i, f in track(enumerate(n.natsorted(os.listdir(sounds_to_encode))), total=len(os.listdir(sounds_to_encode))):
       # Load soundfile and compute spectrogram
-      X_test = proc.load_unique_file(os.path.join(sounds_to_encode, f), mod='log', cropmid=True).reshape(1, 128, 126)
-      X_test = X_test[:, :, :112]
+      X_test = np.expand_dims(proc.load_unique_file(os.path.join(sounds_to_encode, f), mod='log', cropmid=True), 0)
+      X_test = X_test[:, :input_shape[0], :input_shape[1]]
       X_test = np.expand_dims(X_test, 3)
 
       encoder = Model(inputs=autoencoder.input, outputs=autoencoder.get_layer('Dense_maxn').output)
@@ -231,13 +231,13 @@ if args.train:
       fig, axs = plt.subplots(1, 2)
       np.save(os.path.join(os.path.join(save_model_path, 'predict', 'spec', 'data' '{}.npy'.format(f[:-4]))), final_spec)
       
-      axs[0].imshow(X_test.reshape(128, 112), cmap='inferno')
-      axs[1].imshow(final_spec.reshape(128, 112), cmap='inferno')
+      axs[0].imshow(X_test.reshape(input_shape[0], input_shape[1]), cmap='inferno')
+      axs[1].imshow(final_spec.reshape(input_shape[0], input_shape[1]), cmap='inferno')
       plt.tight_layout()
       plt.savefig(os.path.join(save_model_path, 'predict', 'spec', 'img', 'both', '{}.svg').format(f[:-4]))
       plt.close()
 
-      plt.imshow(final_spec.reshape(128, 112), cmap='inferno')
+      plt.imshow(final_spec.reshape(input_shape[0], input_shape[1]), cmap='inferno')
       plt.savefig(os.path.join(save_model_path, 'predict', 'spec', 'img', 'indiv', '{}.svg').format(f[:-4]))
       plt.close()
 
