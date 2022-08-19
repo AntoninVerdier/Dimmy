@@ -241,7 +241,7 @@ class Autoencoder():
         autoencoder = Model(inputs=inputs, outputs=[decoded, encoded])
         print(autoencoder.summary())
         
-        autoencoder.compile(optimizer=opt, loss=[normalized_mse, fn_smoothing], loss_weights=[0.95, 0.05])
+        autoencoder.compile(optimizer='adam', loss=[normalized_mse, fn_smoothing], loss_weights=[0.95, 0.05])
         
         return autoencoder
 

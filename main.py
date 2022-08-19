@@ -207,8 +207,12 @@ if args.train:
 
     # Loop trough each sound and output the latent representation
     for i, f in track(enumerate(n.natsorted(os.listdir(sounds_to_encode))), total=len(os.listdir(sounds_to_encode))):
+      # To clean
+      x = np.arange(1, 129)
+      y = 0.5*np.exp(-0.022*x)
+      y = 1/(np.repeat(y, 126).reshape(128, 126))
       # Load soundfile and compute spectrogram
-      X_test = np.expand_dims(proc.load_unique_file(os.path.join(sounds_to_encode, f), mod='log', cropmid=True), 0)
+      X_test = np.expand_dims(proc.load_unique_file_cqt(os.path.join(sounds_to_encode, f), y, mod='log', cropmid=True), 0)
       X_test = X_test[:, :input_shape[0], :input_shape[1]]
       X_test = np.expand_dims(X_test, 3)
       print(X_test.shape)
