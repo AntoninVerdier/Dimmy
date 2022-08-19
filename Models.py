@@ -9,7 +9,7 @@ from tcn import TCN
 
 import keras_tuner as kt
 from tensorflow.keras.models import Sequential, Model, load_model
-from tensorflow.keras.layers import Input, Dense, InputLayer, Flatten, Reshape, Layer, Conv2D, Conv2DTranspose, MaxPooling2D, UpSampling2D, DepthwiseConv2D
+from tensorflow.keras.layers import Input, Dense, InputLayer, Flatten, Reshape, Layer, Conv2D, Conv2DTranspose, MaxPooling2D, UpSampling2D, DepthwiseConv2D, LeakyReLU
 from tensorflow.keras.layers import Activation, Dropout, Conv1D, UpSampling1D, MaxPooling1D, AveragePooling1D
 
 from tensorflow.keras import backend as K
@@ -127,53 +127,16 @@ class DenseMax(Layer):
 
         return base_config
 
-# class SmoothEncoder(keras.Model):
-
-#     def __init__(self, inputs, outputs):
-#         super().__init__(inputs, outputs)
-#         self.true_freq_corr = np.load(os.path.join('toeplitz', 'toeplitz_100.npy')).reshape(1, 100, 100)
-#         self.test_freq = np.load(os.path.join('toeplitz', 'toeplitz.pkl'), allow_pickle=True)[:, :, :112]
-    
-#     def train_step(self, data):
-#         # Unpack the data. Its structure depends on your model and
-#         # on what you pass to `fit()`.
-#         x, y = data
-
-#         with tf.GradientTape() as tape:
-#             y_pred = self(x, training=True)[0]  # Forward pass, get only final output
-            
-#             tested_freq = self(self.test_freq, training=False)[1] # Get output of encoded layer
-
-
-#             corr = tf.reshape(tfp.stats.correlation(tf.transpose(tested_freq)), (1, 100, 100)) # Not the good correlation
-#             tf.print(corr)
-#             freq_loss = self.compiled_loss(tf.constant(self.true_freq_corr), corr, regularization_losses=self.losses)
-#             #tf.print(freq_loss.shape)
-
-
-#             # Compute the loss value
-#             # (the loss function is configured in `compile()`)
-#             loss = self.compiled_loss(y, y_pred, regularization_losses=self.losses) + 0.2*freq_loss
-
-
-#         # Compute gradients
-#         trainable_vars = self.trainable_variables
-#         gradients = tape.gradient(loss, trainable_vars)
-#         # Update weights
-#         self.optimizer.apply_gradients(zip(gradients, trainable_vars))
-#         # Update metrics (includes the metric that tracks the loss)
-#         self.compiled_metrics.update_state(y, y_pred)
-#         # Return a dict mapping metric names to current value
-#         return {m.name: m.result() for m in self.metrics}
-
 class Autoencoder():
     # This class should return the required autoencoder architecture
-    def __init__(self, model, input_shape, latent_dim, dataset_type='log', max_n=None):
+    def __init__(self, model, input_shape, latent_dim, dataset_type='log', max_n=None, toeplitz_spec=None, toeplitz_true=None):
         self.model = model
         self.input_shape = input_shape
         self.latent_dim = latent_dim
         self.dataset_type = dataset_type
         self.max_n = max_n
+        self.toeplitz_spec = toeplitz_spec
+        self.toeplitz_true = toeplitz_true
 
     def get_model(self):
         if self.model == 'conv_simple':
@@ -182,8 +145,8 @@ class Autoencoder():
     def __conv_simple(self, max_n=100):
 
         def fn_smoothing(y_true, y_pred):
-            true_freq_corr = np.load(os.path.join('toeplitz', 'topelitz_gaussian_cxe.npy'))
-            test_freq = np.load(os.path.join('toeplitz', 'toeplitz_offset_136.pkl'), allow_pickle=True)[:, :, :120]
+            true_freq_corr = np.load(os.path.join('toeplitz', self.toeplitz_spec))
+            test_freq = np.load(os.path.join('toeplitz', self.toeplitz_true), allow_pickle=True)[:, :256, :120]
 
             pred_freq_corr = autoencoder(test_freq)[1]
 
@@ -210,7 +173,7 @@ class Autoencoder():
 
                 
 
-        opt = keras.optimizers.Adam(learning_rate=0.0001)
+        opt = keras.optimizers.RMSprop(learning_rate=0.001, epsilon=1e-8)
 
         kernel_size = 3
 
@@ -240,10 +203,13 @@ class Autoencoder():
         x = Conv2D(96, kernel_size=11, padding='same', activation='relu', name='E_conv_1')(inputs)
         x = MaxPooling2D((2, 2), padding="same", name='E_pool_1')(x)
         x = Conv2D(64, kernel_size=5, padding='same', activation='relu', name='E_conv_2')(x)
+        #x = Dropout(0.1)(x)
         x = MaxPooling2D((2, 2), padding="same", name='E_pool_2')(x)
         x = Conv2D(64, kernel_size=5, padding='same', activation='relu', name='E_conv_3')(x)
+        #x = Dropout(0.1)(x)
         x = MaxPooling2D((2, 2), padding="same", name='E_pool_3')(x)
         x = Conv2D(48, kernel_size=7, padding='same', activation='relu', name='E_conv_4')(x)
+        #x = Dropout(0.1)(x)
         x = Flatten()(x)
         x = DenseMax(self.latent_dim, max_n=max_n, lambertian=False, kernel_constraint=UnitNorm(), name='Dense_maxn')(x)
         
@@ -254,20 +220,28 @@ class Autoencoder():
         
         x = Dense(int(self.input_shape[0]/8)*int(self.input_shape[1]/8)*48)(encoded)
         x = Reshape((int(self.input_shape[0]/8), int(self.input_shape[1]/8), 48))(x)
-        x = Conv2DTranspose(48, 7, strides=1, activation="relu", padding="same", name='D_conv_1')(x)
+        x = Conv2DTranspose(48, 7, strides=1, activation='relu', padding="same", name='D_conv_1')(x)
+        #x = LeakyReLU(alpha=0.3)(x)
         x = UpSampling2D((2, 2), name='D_upsamp_1')(x)
-        x = Conv2DTranspose(48, 5, strides=1, activation="relu", padding="same", name='D_conv_2')(x)
+        #x = Dropout(0.1)(x)
+        x = Conv2DTranspose(48, 5, strides=1, activation='relu', padding="same", name='D_conv_2')(x)
+        #x = LeakyReLU(alpha=0.3)(x)
         x = UpSampling2D((2, 2), name='D_upsamp_2')(x)
-        x = Conv2DTranspose(64, 5, strides=1, activation="relu", padding="same", name='D_conv_3')(x)
+        #x = Dropout(0.1)(x)
+        x = Conv2DTranspose(64, 5, strides=1, activation='relu', padding="same", name='D_conv_3')(x)
+        x = LeakyReLU(alpha=0.3)(x)
         x = UpSampling2D((2, 2), name='D_upsamp_3')(x)
-        x = Conv2DTranspose(96, 9, strides=1, activation="relu", padding="same", name='D_conv_4')(x)
+        #x = Dropout(0.1)(x)
+        x = Conv2DTranspose(96, 9, strides=1, activation='relu', padding="same", name='D_conv_4')(x)
+        #x = LeakyReLU(alpha=0.3)(x)
 
-        decoded = Conv2D(1, (1, 1), activation="relu", padding="same", name='output')(x)
+        decoded = Conv2D(1, (1, 1), activation='relu', padding="same", name='output')(x)
+        #decoded = LeakyReLU(alpha=0.3)(x)
 
         autoencoder = Model(inputs=inputs, outputs=[decoded, encoded])
         print(autoencoder.summary())
         
-        autoencoder.compile(optimizer='adam', loss=[normalized_mse, fn_smoothing], loss_weights=[0.95, 0.05])
+        autoencoder.compile(optimizer=opt, loss=[normalized_mse, fn_smoothing], loss_weights=[0.95, 0.05])
         
         return autoencoder
 

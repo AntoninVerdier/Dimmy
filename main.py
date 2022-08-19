@@ -53,6 +53,8 @@ parser.add_argument('--visualize', '-v', action='store_true',
                     help='flag to visualize a network')
 parser.add_argument('--quicktest', '-qt', type=str, default=None,
                     help='Placeholder for name and description')
+parser.add_argument('--epochs', '-e', type=int, default=150,
+                    help='Number of epochs')
 args = parser.parse_args()
 
 # Tensorboard for weight and training evaluation - maye move to W&B
@@ -72,7 +74,6 @@ if args.callbacks:
    
 # Execute training if inline argument is passed
 if args.train:
-
     # Get time and date for record when saving
     today = datetime.date.today()
     time = datetime.datetime.now()
@@ -86,8 +87,11 @@ if args.train:
       net_name, description = args.quicktest, args.quicktest
     
     # Datasets
-    input_dataset_file = 'heardat_noise_datasetv2_60_offset_136.pkl'
-    output_dataset_file = 'heardat_clean_datasetv2_60_offset_136.pkl'
+    input_dataset_file = 'heardat_noise_datasetv2_60_cqt_128.pkl'
+    output_dataset_file = 'heardat_clean_datasetv2_60_cqt_128.pkl'
+    toeplitz_true = 'toeplitz_offset_cqt_128.pkl'
+    toeplitz_spec = 'topelitz_gaussian_cxe.npy'
+
     # Distinguish between noisy input and clean reconstruction target
     X_train = np.load(open(input_dataset_file, 'rb'), allow_pickle=True)
     X_train_c = np.load(open(output_dataset_file, 'rb'), allow_pickle=True)
@@ -109,7 +113,7 @@ if args.train:
     X_train, X_valid, X_train_c, X_valid_c = train_test_split(X_train, X_train_c, test_size=0.2, shuffle=True)
 
     # Create network class
-    auto = Autoencoder('{net}'.format(net=args.network if args.network else 'dense'), input_shape, params.latent_size, max_n=args.max_n)
+    auto = Autoencoder('{net}'.format(net=args.network if args.network else 'dense'), input_shape, params.latent_size, max_n=args.max_n, toeplitz_true=toeplitz_true, toeplitz_spec=toeplitz_spec)
 
     # Retrive compiled model from network class
     autoencoder = auto.get_model()
@@ -131,12 +135,16 @@ if args.train:
       os.makedirs(os.path.join(save_model_path, 'predict', 'spec', 'img', 'indiv'))
       os.makedirs(os.path.join(save_model_path, 'Callbacks', 'Dat'))
       os.makedirs(os.path.join(save_model_path, 'Callbacks', 'Img'))
+      os.makedirs(os.path.join(save_model_path, 'Performances', 'Img'))
+      os.makedirs(os.path.join(save_model_path, 'Performances', 'Data'))
+
+
 
     # Launch training with callbacks to tensorboard if specified in inline command
 
     class ToeplitzLogger(Callback):
       def on_epoch_end(self, epoch, logs=None):
-          test_freq = np.load(os.path.join('toeplitz', 'toeplitz_offset_136.pkl'), allow_pickle=True)[:, :, :120]
+          test_freq = np.load(os.path.join('toeplitz', toeplitz_true), allow_pickle=True)[:, :input_shape[0], :input_shape[1]]
 
           pred_freq_corr = autoencoder(test_freq)[1]
 
@@ -156,7 +164,7 @@ if args.train:
 
     history = autoencoder.fit(X_train, X_train_c,
                               validation_data=(X_valid, X_valid_c),
-                              epochs=params.epochs, 
+                              epochs=args.epochs, 
                               batch_size=args.batch_size if args.batch_size else 32,
                               callbacks=[ToeplitzLogger()])
 
@@ -203,6 +211,7 @@ if args.train:
       X_test = np.expand_dims(proc.load_unique_file(os.path.join(sounds_to_encode, f), mod='log', cropmid=True), 0)
       X_test = X_test[:, :input_shape[0], :input_shape[1]]
       X_test = np.expand_dims(X_test, 3)
+      print(X_test.shape)
 
       encoder = Model(inputs=autoencoder.input, outputs=autoencoder.get_layer('Dense_maxn').output)
       blurred_output = Model(inputs=autoencoder.input, outputs=autoencoder.get_layer('gaussian_blur').output)
@@ -247,6 +256,34 @@ if args.train:
     font = ImageFont.truetype("Arial.ttf", 26)
     visualkeras.layered_view(autoencoder, os.path.join(save_model_path, 'viz', 'autoencoder.png'), legend=True, font=font)
     # visualkeras.layered_view(decoder, os.path.join(save_model_path, 'viz', 'decoder.png'), legend=True, font=font)
+
+    # Correlation matrix
+    path = os.path.join(save_model_path, 'predict', 'latent', 'data', 'sharp')
+    filenames = n.natsorted(os.listdir(path))
+    np.save(os.path.join(save_model_path, 'Performances', 'Data', 'filenames.npy'), filenames)
+    all_latent = np.array([np.load(os.path.join(path, s)) for s in n.natsorted(os.listdir(path))]).reshape(len(os.listdir(path)), 100)
+
+
+
+    corr_matrix = proc.correlation_matrix(all_latent)
+    np.save(os.path.join(save_model_path, 'Performances', 'Data','corr_matrix.npy'), corr_matrix)
+
+    plt.figure(figsize=(8, 8), dpi=100)
+    plt.imshow(corr_matrix, cmap='viridis')
+    plt.savefig(os.path.join(save_model_path, 'Performances', 'Img','corr_matrix.svg'))
+    plt.close()
+    
+    path = os.path.join(save_model_path, 'predict', 'latent', 'data', 'blurred')
+    filenames = n.natsorted(os.listdir(path))
+    np.save(os.path.join(save_model_path, 'Performances', 'Data', 'filenames_blurred.npy'), filenames)
+    corr_matrix_blurred = proc.correlation_matrix(all_latent)
+    np.save(os.path.join(save_model_path, 'Performances', 'Data','corr_matrix_blurred.npy'), corr_matrix_blurred)
+
+    plt.figure(figsize=(8, 8), dpi=100)
+    plt.imshow(corr_matrix, cmap='viridis')
+    plt.savefig(os.path.join(save_model_path, 'Performances', 'Img','corr_matrix_blurred.svg'))
+    plt.close()
+
 
 # Enter prediction routine if specified in the inline command
 if args.predict:

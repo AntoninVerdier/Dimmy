@@ -137,8 +137,8 @@ if __name__ == '__main__':
 
 	import natsort as n
 
-	pc = '/home/user/Documents/Antonin/Dimmy/Clean_sounds_datasetv2_60'
-	pn = '/home/user/Documents/Antonin/Dimmy/Noise_sounds_datasetv2_60'
+	pc = '/home/user/Documents/Antonin/Dimmy/Clean_sounds_datasetv2_60_28k'
+	pn = '/home/user/Documents/Antonin/Dimmy/Noise_sounds_datasetv2_60_28k'
 	toep = '/home/user/Documents/Antonin/Dimmy/toeplitz/toeplitz'
 
 
@@ -152,9 +152,9 @@ if __name__ == '__main__':
 	paths = [os.path.join(toep, f) for f in os.listdir(toep)]
 
 	
-	load_data_array_multi(paths, mod='log', filename='/home/user/Documents/Antonin/Dimmy/toeplitz/toeplitz_offset_cqt_128.pkl')
-	load_data_array_multi(paths_clean, mod='log', filename='heardat_clean_datasetv2_60_cqt_128.pkl')
-	load_data_array_multi(paths_noise, mod='log', filename='heardat_noise_datasetv2_60_cqt_128.pkl')
+	load_data_array_multi(paths, mod='log', filename='/home/user/Documents/Antonin/Dimmy/toeplitz/toeplitz_offset_cqt_128_28k.pkl')
+	load_data_array_multi(paths_clean, mod='log', filename='heardat_clean_datasetv2_60_cqt_128_28k.pkl')
+	load_data_array_multi(paths_noise, mod='log', filename='heardat_noise_datasetv2_60_cqt_128_28k.pkl')
 # 
 	# sample, samplerate = librosa.load('/home/user/Documents/Antonin/Dimmy/Clean_sounds_datasetv2_60/PT_2047_500ms_70dB_noise6.wav', sr=64000)
 	# f, t, Zxx = signal.stft(sample, fs=samplerate, window='hamming', nperseg=512, noverlap=2)
