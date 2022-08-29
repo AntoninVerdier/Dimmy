@@ -96,6 +96,7 @@ if args.train:
     X_train = np.load(open(input_dataset_file, 'rb'), allow_pickle=True)
     X_train_c = np.load(open(output_dataset_file, 'rb'), allow_pickle=True)
 
+
     # Select the desired portion of the data and shuffle it
     shuffle_mask = np.random.choice(X_train.shape[0], int(args.data_size/100 * X_train.shape[0]), replace=False)
     X_train = X_train[shuffle_mask]
@@ -215,7 +216,6 @@ if args.train:
       X_test = np.expand_dims(proc.load_unique_file_cqt(os.path.join(sounds_to_encode, f), y, mod='log', cropmid=True), 0)
       X_test = X_test[:, :input_shape[0], :input_shape[1]]
       X_test = np.expand_dims(X_test, 3)
-      print(X_test.shape)
 
       encoder = Model(inputs=autoencoder.input, outputs=autoencoder.get_layer('Dense_maxn').output)
       blurred_output = Model(inputs=autoencoder.input, outputs=autoencoder.get_layer('gaussian_blur').output)

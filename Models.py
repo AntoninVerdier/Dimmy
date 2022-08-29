@@ -174,6 +174,8 @@ class Autoencoder():
                 
 
         opt = keras.optimizers.RMSprop(learning_rate=0.001, epsilon=1e-8)
+        optadam = keras.optimizers.Adam(learning_rate=0.0005)
+
 
         kernel_size = 3
 
@@ -203,13 +205,13 @@ class Autoencoder():
         x = Conv2D(96, kernel_size=11, padding='same', activation='relu', name='E_conv_1')(inputs)
         x = MaxPooling2D((2, 2), padding="same", name='E_pool_1')(x)
         x = Conv2D(64, kernel_size=5, padding='same', activation='relu', name='E_conv_2')(x)
-        #x = Dropout(0.1)(x)
+        # x = Dropout(0.1)(x)
         x = MaxPooling2D((2, 2), padding="same", name='E_pool_2')(x)
-        x = Conv2D(64, kernel_size=5, padding='same', activation='relu', name='E_conv_3')(x)
-        #x = Dropout(0.1)(x)
+        x = Conv2D(48, kernel_size=5, padding='same', activation='relu', name='E_conv_3')(x)
+        # x = Dropout(0.1)(x)
         x = MaxPooling2D((2, 2), padding="same", name='E_pool_3')(x)
-        x = Conv2D(48, kernel_size=7, padding='same', activation='relu', name='E_conv_4')(x)
-        #x = Dropout(0.1)(x)
+        x = Conv2D(24, kernel_size=7, padding='same', activation='relu', name='E_conv_4')(x)
+        # x = Dropout(0.1)(x)
         x = Flatten()(x)
         x = DenseMax(self.latent_dim, max_n=max_n, lambertian=False, kernel_constraint=UnitNorm(), name='Dense_maxn')(x)
         
@@ -218,20 +220,20 @@ class Autoencoder():
         x = gaussian_blur(x)
         encoded = Reshape((100,))(x)
         
-        x = Dense(int(self.input_shape[0]/8)*int(self.input_shape[1]/8)*48)(encoded)
-        x = Reshape((int(self.input_shape[0]/8), int(self.input_shape[1]/8), 48))(x)
-        x = Conv2DTranspose(48, 7, strides=1, activation='relu', padding="same", name='D_conv_1')(x)
+        x = Dense(int(self.input_shape[0]/8)*int(self.input_shape[1]/8)*24)(encoded)
+        x = Reshape((int(self.input_shape[0]/8), int(self.input_shape[1]/8), 24))(x)
+        x = Conv2DTranspose(24, 7, strides=1, activation='relu', padding="same", name='D_conv_1')(x)
         #x = LeakyReLU(alpha=0.3)(x)
         x = UpSampling2D((2, 2), name='D_upsamp_1')(x)
-        #x = Dropout(0.1)(x)
+        # x = Dropout(0.1)(x)
         x = Conv2DTranspose(48, 5, strides=1, activation='relu', padding="same", name='D_conv_2')(x)
         #x = LeakyReLU(alpha=0.3)(x)
         x = UpSampling2D((2, 2), name='D_upsamp_2')(x)
-        #x = Dropout(0.1)(x)
+        # x = Dropout(0.1)(x)
         x = Conv2DTranspose(64, 5, strides=1, activation='relu', padding="same", name='D_conv_3')(x)
-        x = LeakyReLU(alpha=0.3)(x)
+        #x = LeakyReLU(alpha=0.3)(x)
         x = UpSampling2D((2, 2), name='D_upsamp_3')(x)
-        #x = Dropout(0.1)(x)
+        # x = Dropout(0.1)(x)
         x = Conv2DTranspose(96, 9, strides=1, activation='relu', padding="same", name='D_conv_4')(x)
         #x = LeakyReLU(alpha=0.3)(x)
 
@@ -241,7 +243,7 @@ class Autoencoder():
         autoencoder = Model(inputs=inputs, outputs=[decoded, encoded])
         print(autoencoder.summary())
         
-        autoencoder.compile(optimizer='adam', loss=[normalized_mse, fn_smoothing], loss_weights=[0.95, 0.05])
+        autoencoder.compile(optimizer=optadam, loss=[normalized_mse, fn_smoothing], loss_weights=[0.95, 0.05])
         
         return autoencoder
 
