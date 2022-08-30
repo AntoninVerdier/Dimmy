@@ -29,6 +29,10 @@ from Models import Autoencoder, DenseMax
 
 import tensorflow as tf
 
+from tensorflow.keras import mixed_precision
+mixed_precision.set_global_policy('mixed_float16')
+
+
 # Define arguments for inline parsing
 paths = s.paths()
 params = s.params()
@@ -59,24 +63,33 @@ args = parser.parse_args()
 
 # Tensorboard for weight and training evaluation - maye move to W&B
 
-if args.callbacks:
-  tensorboard = TensorBoard(
-    log_dir='./logs',
-    histogram_freq=1,
-    write_images=True,
-    update_freq=5
-  )
 
-  keras_callbacks = [
-    tensorboard
-  
-]
+
    
 # Execute training if inline argument is passed
 if args.train:
     # Get time and date for record when saving
     today = datetime.date.today()
     time = datetime.datetime.now()
+
+    # Create saving folder now so we can write callbacks in it
+    today = today.strftime("%d%m%Y")
+    time_str = time.strftime("%H%M%S")
+
+    if args.callbacks:
+      tensorboard = TensorBoard(
+        log_dir='./logs',
+        histogram_freq=1,
+        write_images=True,
+        update_freq=5
+      )
+
+      keras_callbacks = [
+        tensorboard
+      
+      ]
+
+
 
 
     # Quick infos on the network for record
@@ -85,6 +98,11 @@ if args.train:
       description = input('Small description of the current network training, for record > ')
     else:
       net_name, description = args.quicktest, args.quicktest
+
+    logs = "new_logs/" + '{}_{}_{}'.format(today, time_str, net_name)
+    tboard_callback = tf.keras.callbacks.TensorBoard(log_dir = logs,
+                                                     histogram_freq =1,
+                                                     profile_batch =(2, 5))
     
     # Datasets
     input_dataset_file = 'heardat_noise_datasetv2_60_cqt_128.pkl'
@@ -93,9 +111,8 @@ if args.train:
     toeplitz_spec = 'topelitz_gaussian_cxe.npy'
 
     # Distinguish between noisy input and clean reconstruction target
-    X_train = np.load(open(input_dataset_file, 'rb'), allow_pickle=True)
-    X_train_c = np.load(open(output_dataset_file, 'rb'), allow_pickle=True)
-
+    X_train = np.load(open(input_dataset_file, 'rb'), allow_pickle=True)/255.0
+    X_train_c = np.load(open(output_dataset_file, 'rb'), allow_pickle=True)/255.0
 
     # Select the desired portion of the data and shuffle it
     shuffle_mask = np.random.choice(X_train.shape[0], int(args.data_size/100 * X_train.shape[0]), replace=False)
@@ -105,23 +122,24 @@ if args.train:
     # This to enable fair splitting for convolution. Configured for spectrogram training
     if args.network: 
 
-      input_shape = (X_train.shape[1] - X_train.shape[1]%8, X_train.shape[2] - X_train.shape[2]%8)
+      input_shape = (X_train.shape[1] - X_train.shape[1]%16, X_train.shape[2] - X_train.shape[2]%16)
       X_train = X_train[:, :input_shape[0], :input_shape[1]]
       X_train_c = X_train_c[:, :input_shape[0], :input_shape[1]]
 
 
     # Create a validation set
     X_train, X_valid, X_train_c, X_valid_c = train_test_split(X_train, X_train_c, test_size=0.2, shuffle=True)
+    print(X_train.dtype)
+
+    # train_ds = tf.data.Dataset.from_tensor_slices((X_train, X_train_c)).batch(args.batch_size)
+    # valid_ds = tf.data.Dataset.from_tensor_slices((X_valid, X_valid_c)).batch(args.batch_size)
+
 
     # Create network class
     auto = Autoencoder('{net}'.format(net=args.network if args.network else 'dense'), input_shape, params.latent_size, max_n=args.max_n, toeplitz_true=toeplitz_true, toeplitz_spec=toeplitz_spec)
 
     # Retrive compiled model from network class
     autoencoder = auto.get_model()
-
-    # Create saving folder now so we can write callbacks in it
-    today = today.strftime("%d%m%Y")
-    time_str = time.strftime("%H%M%S")
 
     save_model_path = os.path.join(paths.path2Models, '{}_{}_{}'.format(today, time_str, net_name))
     if not os.path.exists(save_model_path):
@@ -167,9 +185,9 @@ if args.train:
     history = autoencoder.fit(X_train, X_train_c,
                               validation_data=(X_valid, X_valid_c),
                               epochs=args.epochs, 
-                              use_multiprocessing = True,
-                              batch_size=args.batch_size if args.batch_size else 32,
-                              callbacks=[ToeplitzLogger()])
+                              use_multiprocessing=True,
+                              #batch_size=args.batch_size if args.batch_size else 32,
+                              callbacks=[ToeplitzLogger(), tboard_callback])
 
     print(history.history.keys())
 
