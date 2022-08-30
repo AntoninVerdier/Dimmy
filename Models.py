@@ -138,17 +138,19 @@ class Autoencoder():
         self.toeplitz_spec = toeplitz_spec
         self.toeplitz_true = toeplitz_true
 
+        self.true_freq_corr = np.load(os.path.join('toeplitz', self.toeplitz_spec))
+        self.test_freq = np.load(os.path.join('toeplitz', self.toeplitz_true), allow_pickle=True)[:, :256, :120]
+
     def get_model(self):
         if self.model == 'conv_simple':
             return self.__conv_simple(max_n=self.max_n)
-
+        if self.model == 'conv_small':
+            return self.__conv_small(max_n=self.max_n)
     def __conv_simple(self, max_n=100):
 
         def fn_smoothing(y_true, y_pred):
-            true_freq_corr = np.load(os.path.join('toeplitz', self.toeplitz_spec))
-            test_freq = np.load(os.path.join('toeplitz', self.toeplitz_true), allow_pickle=True)[:, :256, :120]
 
-            pred_freq_corr = autoencoder(test_freq)[1]
+            pred_freq_corr = autoencoder(self.test_freq)[1]
 
             def t(a): return tf.transpose(a)
 
@@ -160,13 +162,13 @@ class Autoencoder():
             cor = cov2_t @ cov_t @ cov2_t
 
             # Fin how to compute autocorrelation matrix
-            loss = tf.keras.losses.mean_squared_error(true_freq_corr, cor)
+            loss = tf.keras.losses.mean_squared_error(self.true_freq_corr, cor)
             # May need to return output with batch size 
 
             return loss
 
         def normalized_mse(y_true, y_pred):
-            loss = tf.keras.losses.mean_squared_error(y_true/255, y_pred/255)
+            loss = tf.keras.losses.mean_squared_error(y_true/255.0, y_pred/255.0)
 
             return loss
 
@@ -210,7 +212,7 @@ class Autoencoder():
         x = Conv2D(48, kernel_size=5, padding='same', activation='relu', name='E_conv_3')(x)
         # x = Dropout(0.1)(x)
         x = MaxPooling2D((2, 2), padding="same", name='E_pool_3')(x)
-        x = Conv2D(24, kernel_size=7, padding='same', activation='relu', name='E_conv_4')(x)
+        x = Conv2D(48, kernel_size=7, padding='same', activation='relu', name='E_conv_4')(x)
         # x = Dropout(0.1)(x)
         x = Flatten()(x)
         x = DenseMax(self.latent_dim, max_n=max_n, lambertian=False, kernel_constraint=UnitNorm(), name='Dense_maxn')(x)
@@ -220,9 +222,9 @@ class Autoencoder():
         x = gaussian_blur(x)
         encoded = Reshape((100,))(x)
         
-        x = Dense(int(self.input_shape[0]/8)*int(self.input_shape[1]/8)*24)(encoded)
-        x = Reshape((int(self.input_shape[0]/8), int(self.input_shape[1]/8), 24))(x)
-        x = Conv2DTranspose(24, 7, strides=1, activation='relu', padding="same", name='D_conv_1')(x)
+        x = Dense(int(self.input_shape[0]/8)*int(self.input_shape[1]/8)*48)(encoded)
+        x = Reshape((int(self.input_shape[0]/8), int(self.input_shape[1]/8), 48))(x)
+        x = Conv2DTranspose(48, 7, strides=1, activation='relu', padding="same", name='D_conv_1')(x)
         #x = LeakyReLU(alpha=0.3)(x)
         x = UpSampling2D((2, 2), name='D_upsamp_1')(x)
         # x = Dropout(0.1)(x)
@@ -247,5 +249,107 @@ class Autoencoder():
         
         return autoencoder
 
+    def __conv_small(self, max_n=100):
+
+        def fn_smoothing(y_true, y_pred):
+
+            pred_freq_corr = autoencoder(self.test_freq)[1]
+
+            def t(a): return tf.transpose(a)
+
+            x = pred_freq_corr
+            mean_t = tf.reduce_mean(x, axis=1, keepdims=True)
+            #cov_t = x @ t(x)
+            cov_t = ((x-mean_t) @ t(x-mean_t))/(pred_freq_corr.shape[1]-1)
+            cov2_t = tf.linalg.diag(1/tf.sqrt(tf.linalg.diag_part(cov_t)))
+            cor = cov2_t @ cov_t @ cov2_t
+
+            # Fin how to compute autocorrelation matrix
+            loss = tf.keras.losses.mean_squared_error(self.true_freq_corr, cor)
+            # May need to return output with batch size 
+
+            return loss
+
+        def normalized_mse(y_true, y_pred):
+            loss = tf.keras.losses.mean_squared_error(y_true/255.0, y_pred/255.0)
+
+            return loss
+
+
+                
+
+        opt = keras.optimizers.RMSprop(learning_rate=0.001, epsilon=1e-8)
+        optadam = keras.optimizers.Adam(learning_rate=0.0005)
+
+
+        kernel_size = 3
+
+        x, y = np.meshgrid(np.linspace(-1, 1, kernel_size), np.linspace(-1, 1, kernel_size))
+        dst = np.sqrt(x*x + y*y)
+
+        # Considering 1 px = 150um
+        sigma = np.sqrt(np.log(2)/2)
+        muu = 0.000
+
+        kernel_weights = np.exp(-((dst-muu)**2 / (2.0 * sigma**2)))
+
+        kernel_weights = np.expand_dims(kernel_weights, axis=-1)
+        kernel_weights = np.repeat(kernel_weights, 1, axis=-1)
+        kernel_weights = np.expand_dims(kernel_weights, axis=-1)
+
+        def gaussian_blur_filter(shape, dtype=None):
+            f = np.array(kernel_weights)
+
+            assert f.shape == shape
+            return K.variable(f, dtype='float32')
+
+        gaussian_blur = Conv2D(1, kernel_size, use_bias=False, kernel_initializer=gaussian_blur_filter, padding='same', trainable=False, name='gaussian_blur')
+
+        inputs = Input((*self.input_shape, 1))
+
+        x = Conv2D(96, kernel_size=11, padding='same', activation='relu', name='E_conv_1')(inputs)
+        x = MaxPooling2D((2, 2), padding="same", name='E_pool_1')(x)
+        x = Conv2D(64, kernel_size=5, padding='same', activation='relu', name='E_conv_2')(x)
+        # x = Dropout(0.1)(x)
+        x = MaxPooling2D((2, 2), padding="same", name='E_pool_2')(x)
+        x = Conv2D(48, kernel_size=5, padding='same', activation='relu', name='E_conv_3')(x)
+        # x = Dropout(0.1)(x)
+        x = MaxPooling2D((2, 2), padding="same", name='E_pool_3')(x)
+        x = Conv2D(48, kernel_size=7, padding='same', activation='relu', name='E_conv_4')(x)
+        # x = Dropout(0.1)(x)
+        x = Flatten()(x)
+        x = DenseMax(self.latent_dim, max_n=max_n, lambertian=False, kernel_constraint=UnitNorm(), name='Dense_maxn')(x)
+        
+
+        x = Reshape((10, 10, 1))(x)
+        x = gaussian_blur(x)
+        encoded = Reshape((100,))(x)
+        
+        x = Dense(int(self.input_shape[0]/8)*int(self.input_shape[1]/8)*48)(encoded)
+        x = Reshape((int(self.input_shape[0]/8), int(self.input_shape[1]/8), 48))(x)
+        x = Conv2DTranspose(48, 7, strides=1, activation='relu', padding="same", name='D_conv_1')(x)
+        #x = LeakyReLU(alpha=0.3)(x)
+        x = UpSampling2D((2, 2), name='D_upsamp_1')(x)
+        # x = Dropout(0.1)(x)
+        x = Conv2DTranspose(48, 5, strides=1, activation='relu', padding="same", name='D_conv_2')(x)
+        #x = LeakyReLU(alpha=0.3)(x)
+        x = UpSampling2D((2, 2), name='D_upsamp_2')(x)
+        # x = Dropout(0.1)(x)
+        x = Conv2DTranspose(64, 5, strides=1, activation='relu', padding="same", name='D_conv_3')(x)
+        #x = LeakyReLU(alpha=0.3)(x)
+        x = UpSampling2D((2, 2), name='D_upsamp_3')(x)
+        # x = Dropout(0.1)(x)
+        x = Conv2DTranspose(96, 9, strides=1, activation='relu', padding="same", name='D_conv_4')(x)
+        #x = LeakyReLU(alpha=0.3)(x)
+
+        decoded = Conv2D(1, (1, 1), activation='relu', padding="same", name='output')(x)
+        #decoded = LeakyReLU(alpha=0.3)(x)
+
+        autoencoder = Model(inputs=inputs, outputs=[decoded, encoded])
+        print(autoencoder.summary())
+        
+        autoencoder.compile(optimizer=optadam, loss=['mse', fn_smoothing], loss_weights=[0.95, 0.05])
+        
+        return autoencoder
 
    

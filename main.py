@@ -144,10 +144,11 @@ if args.train:
     # Launch training with callbacks to tensorboard if specified in inline command
 
     class ToeplitzLogger(Callback):
-      def on_epoch_end(self, epoch, logs=None):
-          test_freq = np.load(os.path.join('toeplitz', toeplitz_true), allow_pickle=True)[:, :input_shape[0], :input_shape[1]]
+      def __init__(self):
+        self.test_freq = np.load(os.path.join('toeplitz', toeplitz_true), allow_pickle=True)[:, :input_shape[0], :input_shape[1]]
 
-          pred_freq_corr = autoencoder(test_freq)[1]
+      def on_epoch_end(self, epoch, logs=None):
+          pred_freq_corr = autoencoder(self.test_freq)[1]
 
           def t(a): return tf.transpose(a)
 
@@ -166,9 +167,11 @@ if args.train:
     history = autoencoder.fit(X_train, X_train_c,
                               validation_data=(X_valid, X_valid_c),
                               epochs=args.epochs, 
+                              use_multiprocessing = True,
                               batch_size=args.batch_size if args.batch_size else 32,
                               callbacks=[ToeplitzLogger()])
 
+    print(history.history.keys())
 
 
     ################" SAVING MODEL INFO #########################
@@ -197,6 +200,8 @@ if args.train:
     args_dict['training_time'] = training_time
     args_dict['epochs'] = params.epochs
     args_dict['blurring_kernel_size'] = autoencoder.get_layer('gaussian_blur').weights[0].shape[0]
+    args_dict['best_loss'] = np.min(history.history['loss'])
+    args_dict['end_loss'] = history.history['loss'][-1]
 
     # Add training time
 
@@ -288,6 +293,12 @@ if args.train:
     plt.savefig(os.path.join(save_model_path, 'Performances', 'Img','corr_matrix_blurred.svg'))
     plt.close()
 
+    plt.figure(figsize=(6, 8), dpi=100)
+    plt.plot(history.history['loss'], color='blue', label='loss')
+    plt.plot(history.history['val_loss'], color='orange', label='val_loss')
+    plt.legend()
+    plt.savefig(os.path.join(save_model_path, 'Performances', 'Img','loss.svg'))
+    plt.close()
 
 # Enter prediction routine if specified in the inline command
 if args.predict:
