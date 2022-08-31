@@ -105,14 +105,14 @@ if args.train:
                                                      profile_batch =(2, 5))
     
     # Datasets
-    input_dataset_file = 'heardat_noise_datasetv2_60_cqt_128.pkl'
-    output_dataset_file = 'heardat_clean_datasetv2_60_cqt_128.pkl'
+    input_dataset_file = 'heardat_noise_datasetv2_60_cqt_128_28k.pkl'
+    output_dataset_file = 'heardat_clean_datasetv2_60_cqt_128_28k.pkl'
     toeplitz_true = 'toeplitz_offset_cqt_128.pkl'
     toeplitz_spec = 'topelitz_gaussian_cxe.npy'
 
     # Distinguish between noisy input and clean reconstruction target
-    X_train = np.load(open(input_dataset_file, 'rb'), allow_pickle=True)/255.0
-    X_train_c = np.load(open(output_dataset_file, 'rb'), allow_pickle=True)/255.0
+    X_train = np.load(open(input_dataset_file, 'rb'), allow_pickle=True).astype('float32')/255.0
+    X_train_c = np.load(open(output_dataset_file, 'rb'), allow_pickle=True).astype('float32')/255.0
 
     # Select the desired portion of the data and shuffle it
     shuffle_mask = np.random.choice(X_train.shape[0], int(args.data_size/100 * X_train.shape[0]), replace=False)
@@ -186,10 +186,9 @@ if args.train:
                               validation_data=(X_valid, X_valid_c),
                               epochs=args.epochs, 
                               use_multiprocessing=True,
-                              #batch_size=args.batch_size if args.batch_size else 32,
+                              batch_size=args.batch_size if args.batch_size else 32,
                               callbacks=[ToeplitzLogger(), tboard_callback])
 
-    print(history.history.keys())
 
 
     ################" SAVING MODEL INFO #########################
@@ -335,6 +334,7 @@ if args.predict:
     print(f)
     # Load soundfile and compute spectrogram
     X_test = proc.load_unique_file(os.path.join(sounds_to_encode, f), mod='log', cropmid=True).reshape(1, 128, 126)
+    X_test = X_test.astype('float32')/255.0
 
     fig, axs = plt.subplots(1, 2)
     axs[0].imshow(X_test.reshape(128, 126))
