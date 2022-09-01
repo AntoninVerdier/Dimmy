@@ -91,7 +91,6 @@ if args.train:
 
 
 
-
     # Quick infos on the network for record
     if not args.quicktest:
       net_name = input('Name of the network > ')
@@ -107,8 +106,8 @@ if args.train:
     # Datasets
     input_dataset_file = 'heardat_noise_datasetv2_60_cqt_128_28k.pkl'
     output_dataset_file = 'heardat_clean_datasetv2_60_cqt_128_28k.pkl'
-    toeplitz_true = 'toeplitz_offset_cqt_128.pkl'
-    toeplitz_spec = 'topelitz_gaussian_cxe.npy'
+    toeplitz_true = 'toeplitz_offset_cqt_128_28k.pkl'
+    toeplitz_spec = 'topelitz_gaussian_cxe_28k.npy'
 
     # Distinguish between noisy input and clean reconstruction target
     X_train = np.load(open(input_dataset_file, 'rb'), allow_pickle=True).astype('float32')/255.0
@@ -129,7 +128,6 @@ if args.train:
 
     # Create a validation set
     X_train, X_valid, X_train_c, X_valid_c = train_test_split(X_train, X_train_c, test_size=0.2, shuffle=True)
-    print(X_train.dtype)
 
     # train_ds = tf.data.Dataset.from_tensor_slices((X_train, X_train_c)).batch(args.batch_size)
     # valid_ds = tf.data.Dataset.from_tensor_slices((X_valid, X_valid_c)).batch(args.batch_size)
@@ -236,6 +234,7 @@ if args.train:
       y = 1/(np.repeat(y, 126).reshape(128, 126))
       # Load soundfile and compute spectrogram
       X_test = np.expand_dims(proc.load_unique_file_cqt(os.path.join(sounds_to_encode, f), y, mod='log', cropmid=True), 0)
+      X_test = X_test.astype('float32')/255.0
       X_test = X_test[:, :input_shape[0], :input_shape[1]]
       X_test = np.expand_dims(X_test, 3)
 
@@ -323,8 +322,7 @@ if args.predict:
   autoencoder = load_model(os.path.join(paths.path2Models,'Autoencoder_model_{}'.format(args.network)))
   encoder = load_model(os.path.join(paths.path2Models,'Encoder_model_{}'.format(args.network)))
   decoder = load_model(os.path.join(paths.path2Models,'Decoder_model_{}'.format(args.network)))
-  print(encoder.summary())
-  print(decoder.summary())
+
   
   # Load sounds from behvaioural tasks - need to supply sounds from task 5
   sounds_to_encode = '/home/user/Documents/Antonin/Dimmy/Data/SoundsHearlight'

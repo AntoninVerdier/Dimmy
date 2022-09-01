@@ -141,8 +141,6 @@ class Autoencoder():
         self.true_freq_corr = tf.convert_to_tensor(np.load(os.path.join('toeplitz', self.toeplitz_spec)))
         self.test_freq = tf.convert_to_tensor(np.load(os.path.join('toeplitz', self.toeplitz_true), allow_pickle=True)[:, :input_shape[0], :input_shape[1]])
 
-        print(type(self.true_freq_corr), type(self.test_freq))
-
     def get_model(self):
         if self.model == 'conv_simple':
             return self.__conv_simple(max_n=self.max_n)
