@@ -1,3 +1,4 @@
+import os
 import time
 import tensorflow as tf
 
@@ -8,7 +9,7 @@ from tcn import TCN
 
 import keras_tuner as kt
 from tensorflow.keras.models import Sequential, Model, load_model
-from tensorflow.keras.layers import Input, Dense, InputLayer, Flatten, Reshape, Layer, Conv2D, Conv2DTranspose, MaxPooling2D, UpSampling2D, DepthwiseConv2D
+from tensorflow.keras.layers import Input, Dense, InputLayer, Flatten, Reshape, Layer, Conv2D, Conv2DTranspose, MaxPooling2D, UpSampling2D, DepthwiseConv2D, LeakyReLU
 from tensorflow.keras.layers import Activation, Dropout, Conv1D, UpSampling1D, MaxPooling1D, AveragePooling1D
 
 from tensorflow.keras import backend as K
@@ -22,6 +23,7 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.constraints import UnitNorm, Constraint
 
 import tensorflow.experimental.numpy as tnp
+import tensorflow_probability as tfp
 
 # from AE import Sampling
 # from AE import VAE
@@ -36,78 +38,6 @@ from tensorflow.python.ops.numpy_ops import np_config
 np_config.enable_numpy_behavior()
 
 import matplotlib.pyplot as plt
-
-
-
-# Could be useful to implement talos library for gidsearch to run on the weekend
-
-class DenseTied(Layer):
-    def __init__(self, units,
-                 activation=None,
-                 use_bias=True,
-                 kernel_initializer='glorot_uniform',
-                 bias_initializer='zeros',
-                 kernel_regularizer=None,
-                 bias_regularizer=None,
-                 activity_regularizer=None,
-                 kernel_constraint=None,
-                 bias_constraint=None,
-                 tied_to=None,
-                 **kwargs):
-        self.tied_to = tied_to
-        if 'input_shape' not in kwargs and 'input_dim' in kwargs:
-            kwargs['input_shape'] = (kwargs.pop('input_dim'),)
-        super().__init__(**kwargs)
-        self.units = units
-        self.activation = activations.get(activation)
-        self.use_bias = use_bias
-        self.kernel_initializer = initializers.get(kernel_initializer)
-        self.bias_initializer = initializers.get(bias_initializer)
-        self.kernel_regularizer = regularizers.get(kernel_regularizer)
-        self.bias_regularizer = regularizers.get(bias_regularizer)
-        self.activity_regularizer = regularizers.get(activity_regularizer)
-        self.kernel_constraint = constraints.get(kernel_constraint)
-        self.bias_constraint = constraints.get(bias_constraint)
-        self.input_spec = InputSpec(min_ndim=2)
-        self.supports_masking = True
-                
-    def build(self, input_shape):
-        assert len(input_shape) >= 2
-        input_dim = input_shape[-1]
-
-        if self.tied_to is not None:
-            self.kernel = K.transpose(self.tied_to.kernel)
-            self._non_trainable_weights.append(self.kernel)
-        else:
-            self.kernel = self.add_weight(shape=(input_dim, self.units),
-                                          initializer=self.kernel_initializer,
-                                          name='kernel',
-                                          regularizer=self.kernel_regularizer,
-                                          constraint=self.kernel_constraint)
-        if self.use_bias:
-            self.bias = self.add_weight(shape=(self.units,),
-                                        initializer=self.bias_initializer,
-                                        name='bias',
-                                        regularizer=self.bias_regularizer,
-                                        constraint=self.bias_constraint)
-        else:
-            self.bias = None
-        self.input_spec = InputSpec(min_ndim=2, axes={-1: input_dim})
-        self.built = True
-
-    def compute_output_shape(self, input_shape):
-        assert input_shape and len(input_shape) >= 2
-        output_shape = list(input_shape)
-        output_shape[-1] = self.units
-        return tuple(output_shape)
-
-    def call(self, inputs):
-        output = K.dot(inputs, self.kernel)
-        if self.use_bias:
-            output = K.bias_add(output, self.bias, data_format='channels_last')
-        if self.activation is not None:
-            output = self.activation(output)
-        return output
 
 class DenseMax(Layer):
     """
@@ -199,122 +129,65 @@ class DenseMax(Layer):
 
 class Autoencoder():
     # This class should return the required autoencoder architecture
-    def __init__(self, model, input_shape, latent_dim, dataset_type='log', max_n=None):
+    def __init__(self, model, input_shape, latent_dim, dataset_type='log', max_n=None, toeplitz_spec=None, toeplitz_true=None):
         self.model = model
         self.input_shape = input_shape
         self.latent_dim = latent_dim
         self.dataset_type = dataset_type
         self.max_n = max_n
+        self.toeplitz_spec = toeplitz_spec
+        self.toeplitz_true = toeplitz_true
+
+        self.true_freq_corr = tf.convert_to_tensor(np.load(os.path.join('toeplitz', self.toeplitz_spec)))
+        self.test_freq = tf.convert_to_tensor(np.load(os.path.join('toeplitz', self.toeplitz_true), allow_pickle=True)[:, :input_shape[0], :input_shape[1]])
 
     def get_model(self):
-        if self.model == 'dense':
-            return self.__dense()
-        elif self.model == 'dense_tied':
-            return self.__dense_tied()
-        elif self.model == 'densebin':
-            return self.__dense_with_constraints()
-        elif self.model == 'conv_simple':
+        if self.model == 'conv_simple':
             return self.__conv_simple(max_n=self.max_n)
-        elif self.model == 'conv_vae':
-            return self.__conv_vae()
-        elif self.model == 'conv_simple_test':
-            return self.__conv_simple_test()
-        elif self.model =='conv_simple_tune':
-            tuner = kt.RandomSearch(self.__conv_simple_tune, objective='val_loss', max_trials=30)
-            return tuner
-        elif self.model == 'tcn':
-            return self.__tcn_ae()
+        if self.model == 'conv_small':
+            return self.__conv_small(max_n=self.max_n)
     
-    def get_data(self):
-        if self.dataset_type == 'log':
-            self.X_train = np.load(open('Data/dataset_train_log.pkl', 'rb'), allow_pickle=True)
-        if self.dataset_type == 'linear':
-            self.X_train = np.load(open('Data/dataset_train_linear.pkl', 'rb'), allow_pickle=True)
-
-        print('Data loaded.')
-
-    def __dense(self, max_n=10):
-
-        encoder = Sequential()
-        encoder.add(InputLayer(self.input_shape))
-        encoder.add(Flatten())
-        encoder.add(Dense(1024, activation='relu'))
-        encoder.add(Dense(512, activation='relu'))
-        encoder.add(Dense(256, activation='relu'))
-        encoder.add(Dense(128, activation='relu'))
-        encoder.add(Dense(128, activation='relu'))
-        encoder.add(DenseMax(self.latent_dim, name='latent_dim', max_n=max_n, kernel_constraint=UnitNorm()))
-
-        decoder = Sequential()
-        decoder.add(InputLayer((self.latent_dim,)))
-        decoder.add(Dense(128, activation='relu'))
-        decoder.add(Dense(128, activation='relu'))
-        decoder.add(Dense(256, activation='relu'))
-        decoder.add(Dense(512, activation='relu'))
-        decoder.add(Dense(1024, activation='relu'))
-
-        decoder.add(Dense(np.prod(self.input_shape)))
-        decoder.add(Reshape(self.input_shape))
-
-        opt = keras.optimizers.Adam(learning_rate=0.001)
-
-
-        encoder.compile(optimizer=opt, loss='mse')
-        decoder.compile(optimizer=opt, loss='mse')
-
-        inp = Input(self.input_shape)
-        code = encoder(inp)
-        reconstruction = decoder(code)
-
-        autoencoder = Model(inp, reconstruction, name='dense')
-        autoencoder.compile(optimizer=opt, loss='mse')
-        return encoder, decoder, autoencoder
-
-    def __dense_tied(self):
-
-        inputs = Input((1, 128))
-        
-        dense_0 = Dense(512, activation='relu', name='dense_0')
-        dense_1 = Dense(256, activation='relu', name='dense_1')
-        dense_2 = Dense(128, activation='relu', name='dense_2')
-        latent_dim = Dense(self.latent_dim, name='latent_dim')
-
-        x = Flatten()(inputs)
-        x = dense_0(x)
-        x = dense_1(x)
-        output = dense_2(x)
-        # output = latent_dim(x)
-
-        encoder = keras.Model(inputs=inputs, outputs=output)
-
-        print(encoder.summary())
-        
-        inputs_dec = Input((self.latent_dim,))
-        dense_dec_0 = DenseTied(128, activation='relu', tied_to=dense_2)(inputs_dec)
-        dense_dec_1 = DenseTied(256, activation='relu', tied_to=dense_1)(dense_dec_0)
-        dense_dec_2 = DenseTied(512, activation='relu', tied_to=dense_0)(dense_dec_1)
-        dense_format = Dense(np.prod(self.input_shape))(dense_dec_2)
-        reconstruction = Reshape(self.input_shape)(dense_format)
-
-        decoder = keras.Model(inputs=inputs_dec, outputs=reconstruction)
-
-        autoencoder = Model(inputs, reconstruction, name='dense')
-        autoencoder.compile(optimizer='adam', loss='mse')
-        return encoder, decoder, autoencoder
-
 
     def __conv_simple(self, max_n=100):
 
-        opt = keras.optimizers.Adam(learning_rate=0.0001)
+        def fn_smoothing(y_true, y_pred):
 
-        kernel_size = 5
+            pred_freq_corr = autoencoder(self.test_freq)[1]
+
+            def t(a): return tf.transpose(a)
+
+            x = pred_freq_corr
+            mean_t = tf.reduce_mean(x, axis=1, keepdims=True)
+            #cov_t = x @ t(x)
+            cov_t = ((x-mean_t) @ t(x-mean_t))/(pred_freq_corr.shape[1]-1)
+            cov2_t = tf.linalg.diag(1/tf.sqrt(tf.linalg.diag_part(cov_t)))
+            cor = cov2_t @ cov_t @ cov2_t
+
+            # Fin how to compute autocorrelation matrix
+            loss = tf.keras.losses.mean_squared_error(self.true_freq_corr, cor)
+            # May need to return output with batch size 
+
+            return loss
+
+        def normalized_mse(y_true, y_pred):
+            loss = tf.keras.losses.mean_squared_error(y_true/255.0, y_pred/255.0)
+
+            return loss
+
+
+                
+
+        opt = keras.optimizers.RMSprop(learning_rate=0.001, epsilon=1e-8)
+        optadam = keras.optimizers.Adam(learning_rate=0.0005)
+
+
+        kernel_size = 3
 
         x, y = np.meshgrid(np.linspace(-1, 1, kernel_size), np.linspace(-1, 1, kernel_size))
         dst = np.sqrt(x*x + y*y)
 
         # Considering 1 px = 150um
-        #sigma = np.sqrt(np.log(2)/2) # This is the wrong way around
-        sigma = 4 / (3 * np.sqrt(2 * np.log(2))) # This estimates half width to be 8/3 pixel (400um)
+        sigma = np.sqrt(np.log(2)/2)
         muu = 0.000
 
         kernel_weights = np.exp(-((dst-muu)**2 / (2.0 * sigma**2)))
@@ -322,10 +195,6 @@ class Autoencoder():
         kernel_weights = np.expand_dims(kernel_weights, axis=-1)
         kernel_weights = np.repeat(kernel_weights, 1, axis=-1)
         kernel_weights = np.expand_dims(kernel_weights, axis=-1)
-
-        # plt.imshow(kernel_weights.reshape(3, 3), cmap='Blues')
-        # plt.savefig('kernel_filter.svg')
-        # plt.show()
 
         def gaussian_blur_filter(shape, dtype=None):
             f = np.array(kernel_weights)
@@ -335,308 +204,158 @@ class Autoencoder():
 
         gaussian_blur = Conv2D(1, kernel_size, use_bias=False, kernel_initializer=gaussian_blur_filter, padding='same', trainable=False, name='gaussian_blur')
 
-        encoder = Sequential()
-        encoder.add(InputLayer((*self.input_shape, 1)))
+        inputs = Input((*self.input_shape, 1))
 
-        encoder.add(Conv2D(96, kernel_size=11, padding='same', activation='relu', name='E_conv_1'))
-        encoder.add(MaxPooling2D((2, 2), padding="same", name='E_pool_1'))
-        encoder.add(Conv2D(64, kernel_size=5, padding='same', activation='relu', name='E_conv_2'))
-        encoder.add(MaxPooling2D((2, 2), padding="same", name='E_pool_2'))
-        encoder.add(Conv2D(64, kernel_size=5, padding='same', activation='relu', name='E_conv_3'))
-        encoder.add(MaxPooling2D((2, 2), padding="same", name='E_pool_3'))
-        encoder.add(Conv2D(48, kernel_size=7, padding='same', activation='relu', name='E_conv_4'))
-        encoder.add(Flatten())
-        encoder.add(DenseMax(self.latent_dim, max_n=max_n, lambertian=False, kernel_constraint=UnitNorm(), name='Dense_maxn'))
-
-        # Enable only when gaussian blurring
-        # encoder.add(Reshape((10, 10, 1)))
-        # encoder.add(gaussian_blur)
-        # encoder.add(Reshape((100,)))
-
-
-        encoder.compile(optimizer=opt, loss='mse')
-
-        for l in encoder.layers :
-            print(l.output_shape)
-
-
-        decoder = Sequential()
-        decoder.add(InputLayer((100)))
-        # #decoder.add(Discretization(num_bins=10, epsilon=0.01)) # Need to check if binning is good, i.e what is the range of input data
-        
-        decoder.add(Reshape((10, 10, 1)))
-        decoder.add(gaussian_blur)
-        decoder.add(Reshape((100,)))
-        
-        decoder.add(Dense(16*14*48))
-        decoder.add(Reshape((16, 14, 48)))
-        decoder.add(Conv2DTranspose(48, 7, strides=1, activation="relu", padding="same", name='D_conv_1'))
-        decoder.add(UpSampling2D((2, 2), name='D_upsamp_1'))
-        decoder.add(Conv2DTranspose(48, 5, strides=1, activation="relu", padding="same", name='D_conv_2'))
-        decoder.add(UpSampling2D((2, 2), name='D_upsamp_2'))
-        decoder.add(Conv2DTranspose(64, 5, strides=1, activation="relu", padding="same", name='D_conv_3'))
-        decoder.add(UpSampling2D((2, 2), name='D_upsamp_3'))
-        decoder.add(Conv2DTranspose(96, 9, strides=1, activation="relu", padding="same", name='D_conv_4'))
-
-        decoder.add(Conv2D(1, (1, 1), activation="relu", padding="same", name='output'))
-
-
-        print(encoder.summary())
-        decoder.compile(optimizer=opt, loss='mse')
-
-        print(decoder.summary())
-
-        inp = Input((*self.input_shape, 1))
-        code = encoder(inp)
-        reconstruction = decoder(code)
-
-        autoencoder = Model(inp, reconstruction, name='dense')
-        autoencoder.compile(optimizer=opt, loss='mse')
-        return encoder, decoder, autoencoder
-
-
-    def __dense_auditory(self):
-        pass
-
-    def __conv_vae(self):
-        latent_dim = 2
-
-        encoder_inputs = Input(shape=(*self.input_shape, 1))
-        x = Conv2D(32, 3, activation="relu", strides=2, padding="same")(encoder_inputs)
-        x = Conv2D(64, 3, activation="relu", strides=2, padding="same")(x)
+        x = Conv2D(96, kernel_size=11, padding='same', activation='relu', name='E_conv_1')(inputs)
+        x = MaxPooling2D((2, 2), padding="same", name='E_pool_1')(x)
+        x = Conv2D(64, kernel_size=5, padding='same', activation='relu', name='E_conv_2')(x)
+        # x = Dropout(0.1)(x)
+        x = MaxPooling2D((2, 2), padding="same", name='E_pool_2')(x)
+        x = Conv2D(48, kernel_size=5, padding='same', activation='relu', name='E_conv_3')(x)
+        # x = Dropout(0.1)(x)
+        x = MaxPooling2D((2, 2), padding="same", name='E_pool_3')(x)
+        x = Conv2D(48, kernel_size=7, padding='same', activation='relu', name='E_conv_4')(x)
+        # x = Dropout(0.1)(x)
         x = Flatten()(x)
-        x = Dense(16, activation="relu")(x)
-        z_mean = Dense(latent_dim, name="z_mean")(x)
-        z_log_var = Dense(latent_dim, name="z_log_var")(x)
-        z = Sampling()([z_mean, z_log_var])
-        encoder = keras.Model(encoder_inputs, [z_mean, z_log_var, z], name="encoder")
-        encoder.summary()
-
-        latent_inputs = keras.Input(shape=(latent_dim,))
-        x = Dense(7 * 7 * 64, activation="relu")(latent_inputs)
-        x = Reshape((7, 7, 64))(x)
-        x = Conv2DTranspose(64, 3, activation="relu", strides=2, padding="same")(x)
-        x = Conv2DTranspose(32, 3, activation="relu", strides=2, padding="same")(x)
-        decoder_outputs = Conv2DTranspose(1, 3, activation="sigmoid", padding="same")(x)
-        decoder = keras.Model(latent_inputs, decoder_outputs, name="decoder")
-        decoder.summary()
-
-        (x_train, _), (x_test, _) = keras.datasets.mnist.load_data()
-
-
-        # mnist_digits = np.concatenate([x_train, x_test], axis=0)
-
-        mnist_digits = x_train
-        mnist_digits = np.expand_dims(mnist_digits, -1).astype("float32") / 255
-        vae = VAE(encoder, decoder)
-        vae.compile(optimizer=keras.optimizers.Adam())
-        print(mnist_digits.shape)
-        vae.fit(mnist_digits, epochs=30, batch_size=128)
-
-
-    def __conv_simple_test(self):
-
-        opt = keras.optimizers.Adam(learning_rate=0.001)
-
-        encoder = Sequential()
-        encoder.add(InputLayer((*self.input_shape, 1)))
-
-        encoder.add(Conv2D(64, kernel_size=(13, 13), padding='same', activation='relu'))
-        encoder.add(MaxPooling2D((2, 2), padding="same"))
-        encoder.add(Conv2D(32, kernel_size=(7, 7), padding='same', activation='relu'))
-        encoder.add(MaxPooling2D((2, 2), padding="same"))
-        encoder.add(Conv2D(16, kernel_size=(5, 5), padding='same', activation='relu'))
-        encoder.add(MaxPooling2D((2, 2), padding="same"))
-        encoder.add(Conv2D(16, kernel_size=(3, 3), padding='same', activation='relu'))
-        encoder.add(Flatten())
-        encoder.add(DenseMax(self.latent_dim, max_n=20, kernel_constraint=UnitNorm()))
-
-        encoder.compile(optimizer=opt, loss='mse')
-
-
-        for l in encoder.layers :
-            print(l.output_shape)
-
-
-        decoder = Sequential()
-        decoder.add(InputLayer((100)))
-        decoder.add(Dense(64*10*16))
-        decoder.add(Reshape((64, 10, 16)))
-        decoder.add(Conv2DTranspose(16, (3, 3), strides=1, activation="relu", padding="same"))
-        decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2DTranspose(16, (5, 5), strides=1, activation="relu", padding="same"))
-        decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2DTranspose(32, (7, 7), strides=1, activation="relu", padding="same"))
-        decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2DTranspose(64, (13, 13), strides=1, activation="relu", padding="same"))
-
-        decoder.add(Conv2D(1, (1, 1), activation="relu", padding="same"))
-
-
-        print(encoder.summary())
-        decoder.compile(optimizer=opt, loss='mse')
-
-        print(decoder.summary())
-
-        inp = Input((*self.input_shape, 1))
-        code = encoder(inp)
-        reconstruction = decoder(code)
-
-        autoencoder = Model(inp, reconstruction, name='dense')
-        autoencoder.compile(optimizer=opt, loss='mse')
-        return encoder, decoder, autoencoder
-
-    def lstm(self):
-
-        model = keras.Sequential()
-        model.add(keras.layers.LSTM(
-            units=64,
-            input_shape=(X_train.shape[1], X_train.shape[2])
-        ))
-        model.add(keras.layers.Dropout(rate=0.2))
-        model.add(keras.layers.RepeatVector(n=X_train.shape[1]))
-        model.add(keras.layers.LSTM(units=64, return_sequences=True))
-        model.add(keras.layers.Dropout(rate=0.2))
-        model.add(
-          keras.layers.TimeDistributed(
-            keras.layers.Dense(units=X_train.shape[2])
-          )
-        )
-        model.compile(loss='mae', optimizer='adam')
-        model.summary()
-
-    def __conv_simple_tune(self, hp):
-
-        opt = keras.optimizers.Adam(learning_rate=0.0001)
-
-        encoder = Sequential()
-        encoder.add(InputLayer((*self.input_shape, 1)))
-
-        encoder.add(Conv2D(
-            filters=hp.Int('encoder_conv_1_filter', min_value=32, max_value=128, step=32),
-            kernel_size=hp.Choice('encoder_kernel_size_1', [3, 5, 7, 9]), padding='same', activation='relu'))
-        encoder.add(MaxPooling2D((2, 2), padding="same"))
-
-        encoder.add(Conv2D(
-            filters=hp.Int('encoder_conv_2_filter', min_value=16, max_value=64, step=16),
-            kernel_size=hp.Choice('encoder_kernel_size_2', [3, 5, 7]), padding='same', activation='relu'))
-        encoder.add(MaxPooling2D((2, 2), padding="same"))
-
-        encoder.add(Conv2D(
-            filters=hp.Int('encoder_conv_3_filter', min_value=16, max_value=64, step=16),
-            kernel_size=hp.Choice('encoder_kernel_size_3', [3, 5, 7]), padding='same', activation='relu'))
-        encoder.add(MaxPooling2D((2, 2), padding="same"))
-
-        encoder.add(Conv2D(
-            filters=hp.Int('encoder_conv_4_filter', min_value=16, max_value=64, step=16),
-            kernel_size=hp.Choice('encoder_kernel_size_4', [3, 5, 7]), padding='same', activation='relu'))
-        encoder.add(Flatten())
-        encoder.add(DenseMax(self.latent_dim, max_n=20, kernel_constraint=UnitNorm()))
-
-        encoder.compile(optimizer=opt, loss='mse')
-
-
-        for l in encoder.layers :
-            print(l.output_shape)
-
-
-        decoder = Sequential()
-        decoder.add(InputLayer((100)))
-        #decoder.add(Discretization(num_bins=10, epsilon=0.01)) # Need to check if binning is good, i.e what is the range of input data
-        decoder.add(Dense(64*10*16))
-        decoder.add(Reshape((64, 10, 16)))
-        decoder.add(Conv2DTranspose(hp.get('encoder_conv_4_filter'), hp.get('encoder_kernel_size_4'), strides=1, activation="relu", padding="same"))
-        decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2DTranspose(hp.get('encoder_conv_3_filter'), hp.get('encoder_kernel_size_3'), strides=1, activation="relu", padding="same"))
-        decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2DTranspose(hp.get('encoder_conv_2_filter'), hp.get('encoder_kernel_size_2'), strides=1, activation="relu", padding="same"))
-        decoder.add(UpSampling2D((2, 2)))
-        decoder.add(Conv2DTranspose(hp.get('encoder_conv_1_filter'), hp.get('encoder_kernel_size_1'), strides=1, activation="relu", padding="same"))
-
-        decoder.add(Conv2D(1, (1, 1), activation="relu", padding="same"))
-
-
-        print(encoder.summary())
-        decoder.compile(optimizer=opt, loss='mse')
-
-        print(decoder.summary())
-
-        inp = Input((*self.input_shape, 1))
-        code = encoder(inp)
-        reconstruction = decoder(code)
-
-        autoencoder = Model(inp, reconstruction, name='dense')
-        autoencoder.compile(optimizer=opt, loss='mse')
-        return autoencoder
-
-
-    def __tcn_ae(self):
-
-        ts_dimension = 1
-        dilations = (4, 8, 16, 64, 96)
-        nb_filters = 20
-        kernel_size = 20
-        nb_stacks = 1
-        padding = 'same'
-        dropout_rate = 0.00
-        filters_conv1d = 32
-        activation_conv1d = 'linear'
-        latent_sample_rate = 8
-        pooler = AveragePooling1D
-        lr = 0.001
-        conv_kernel_init = 'glorot_normal'
-        loss = 'logcosh'
-        
-                        
-        tensorflow.keras.backend.clear_session()
-        sampling_factor = latent_sample_rate
-        i = Input(batch_shape=(None, 31920, ts_dimension))
-
-        # Put signal through TCN. Output-shape: (batch,sequence length, nb_filters)
-        tcn_enc = TCN(nb_filters=nb_filters, kernel_size=kernel_size, nb_stacks=nb_stacks, dilations=dilations, 
-                      padding=padding, use_skip_connections=True, dropout_rate=dropout_rate, return_sequences=True,
-                      kernel_initializer=conv_kernel_init, name='tcn-enc')(i)
-
-        # Now, adjust the number of channels...
-        enc_flat = Conv1D(filters=filters_conv1d, kernel_size=1, activation=activation_conv1d, padding=padding)(tcn_enc)
-
-        ## Do some average (max) pooling to get a compressed representation of the time series (e.g. a sequence of length 8)
-        enc_pooled = pooler(pool_size=sampling_factor, strides=None, padding='valid', data_format='channels_last')(enc_flat)
-        
-        # If you want, maybe put the pooled values through a non-linear Activation
-        enc_out = Activation("relu")(enc_pooled)
-
-
-
-        encoder = Model(inputs=[i], outputs=[enc_out])
-
-        # Now we should have a short sequence, which we will upsample again and then try to reconstruct the original series
-        j = Input(batch_shape=(None, None, filters_conv1d)) 
-        
-        dec_upsample = UpSampling1D(size=sampling_factor)(j)
-
-        dec_reconstructed = TCN(nb_filters=nb_filters, kernel_size=kernel_size, nb_stacks=nb_stacks, dilations=dilations, 
-                                padding=padding, use_skip_connections=True, dropout_rate=dropout_rate, return_sequences=True,
-                                kernel_initializer=conv_kernel_init, name='tcn-dec')(dec_upsample)
-
-        # Put the filter-outputs through a dense layer finally, to get the reconstructed signal
-        o = Dense(ts_dimension, activation='linear')(dec_reconstructed)
-
-        decoder = Model(inputs=[j], outputs=[o])
+        x = DenseMax(self.latent_dim, max_n=max_n, lambertian=False, kernel_constraint=UnitNorm(), name='Dense_maxn')(x)
         
 
-        code = encoder(i)
-        reconstruction = decoder(code)
-
-        autoencoder = Model(i, reconstruction)
-
-        adam = optimizers.Adam(learning_rate=lr, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0, amsgrad=True)
+        x = Reshape((10, 10, 1))(x)
+        x = gaussian_blur(x)
+        encoded = Reshape((100,))(x)
         
-        autoencoder.compile(loss=loss, optimizer=adam, metrics=[loss])
-        
-        print(encoder.summary())
-        print(decoder.summary())
+        x = Dense(int(self.input_shape[0]/8)*int(self.input_shape[1]/8)*48)(encoded)
+        x = Reshape((int(self.input_shape[0]/8), int(self.input_shape[1]/8), 48))(x)
+        x = Conv2DTranspose(48, 7, strides=1, activation='relu', padding="same", name='D_conv_1')(x)
+        #x = LeakyReLU(alpha=0.3)(x)
+        x = UpSampling2D((2, 2), name='D_upsamp_1')(x)
+        # x = Dropout(0.1)(x)
+        x = Conv2DTranspose(48, 5, strides=1, activation='relu', padding="same", name='D_conv_2')(x)
+        #x = LeakyReLU(alpha=0.3)(x)
+        x = UpSampling2D((2, 2), name='D_upsamp_2')(x)
+        # x = Dropout(0.1)(x)
+        x = Conv2DTranspose(64, 5, strides=1, activation='relu', padding="same", name='D_conv_3')(x)
+        #x = LeakyReLU(alpha=0.3)(x)
+        x = UpSampling2D((2, 2), name='D_upsamp_3')(x)
+        # x = Dropout(0.1)(x)
+        x = Conv2DTranspose(96, 11, strides=1, activation='relu', padding="same", name='D_conv_4')(x)
+        #x = LeakyReLU(alpha=0.3)(x)
+
+        decoded = Conv2D(1, (1, 1), activation='relu', padding="same", name='output')(x)
+        #decoded = LeakyReLU(alpha=0.3)(x)
+
+        autoencoder = Model(inputs=inputs, outputs=[decoded, encoded])
         print(autoencoder.summary())
         
-        return encoder, decoder, autoencoder 
+        autoencoder.compile(optimizer=optadam, loss=[normalized_mse, fn_smoothing], loss_weights=[0.95, 0.05])
         
+        return autoencoder
+
+    def __conv_small(self, max_n=100):
+
+        def fn_smoothing(y_true, y_pred):
+
+            pred_freq_corr = autoencoder(self.test_freq)[1]
+
+            def t(a): return tf.transpose(a)
+
+            x = pred_freq_corr
+            mean_t = tf.reduce_mean(x, axis=1, keepdims=True)
+            #cov_t = x @ t(x)
+            cov_t = ((x-mean_t) @ t(x-mean_t))/(pred_freq_corr.shape[1]-1)
+            cov2_t = tf.linalg.diag(1/tf.sqrt(tf.linalg.diag_part(cov_t)))
+            cor = cov2_t @ cov_t @ cov2_t
+
+            # Fin how to compute autocorrelation matrix
+            loss = tf.keras.losses.mean_squared_error(self.true_freq_corr, cor)
+            # May need to return output with batch size 
+
+            return loss
+
+        def normalized_mse(y_true, y_pred):
+            loss = tf.keras.losses.mean_squared_error(y_true, y_pred)
+
+            return loss
+
+
+                
+
+        opt = keras.optimizers.RMSprop(learning_rate=0.001, epsilon=1e-8)
+        optadam = keras.optimizers.Adam(learning_rate=0.001)
+
+
+        kernel_size = 3
+
+        x, y = np.meshgrid(np.linspace(-1, 1, kernel_size), np.linspace(-1, 1, kernel_size))
+        dst = np.sqrt(x*x + y*y)
+
+        # Considering 1 px = 150um
+        sigma = np.sqrt(np.log(2)/2)
+        muu = 0.000
+
+        kernel_weights = np.exp(-((dst-muu)**2 / (2.0 * sigma**2)))
+
+        kernel_weights = np.expand_dims(kernel_weights, axis=-1)
+        kernel_weights = np.repeat(kernel_weights, 1, axis=-1)
+        kernel_weights = np.expand_dims(kernel_weights, axis=-1)
+
+        def gaussian_blur_filter(shape, dtype=None):
+            f = np.array(kernel_weights)
+
+            assert f.shape == shape
+            return K.variable(f)
+
+        gaussian_blur = Conv2D(1, kernel_size, use_bias=False, kernel_initializer=gaussian_blur_filter, padding='same', trainable=False, name='gaussian_blur')
+
+        inputs = Input((*self.input_shape, 1))
+
+        x = Conv2D(64, kernel_size=13, padding='same', activation='relu', name='E_conv_1')(inputs)
+        x = MaxPooling2D((2, 2), padding="same", name='E_pool_1')(x)
+        x = Conv2D(48, kernel_size=5, padding='same', activation='relu', name='E_conv_2')(x)
+        # x = Dropout(0.1)(x)
+        x = MaxPooling2D((2, 2), padding="same", name='E_pool_2')(x)
+        x = Conv2D(32, kernel_size=5, padding='same', activation='relu', name='E_conv_3')(x)
+        # x = Dropout(0.1)(x)
+        x = MaxPooling2D((2, 2), padding="same", name='E_pool_3')(x)
+        x = Conv2D(16, kernel_size=7, padding='same', activation='relu', name='E_conv_4')(x)
+        x = MaxPooling2D((2, 2), padding="same", name='E_pool_4')(x)
+
+
+        # x = Dropout(0.1)(x)
+        x = Flatten()(x)
+        dnmax = DenseMax(self.latent_dim, max_n=max_n, lambertian=False, kernel_constraint=UnitNorm(), name='Dense_maxn')(x)
+        
+
+        x = Reshape((10, 10, 1))(dnmax)
+        x = gaussian_blur(x)
+        encoded = Reshape((100,), dtype=tf.float32)(x)
+        
+        x = Dense(int(self.input_shape[0]/16)*int(self.input_shape[1]/16)*16)(encoded)
+        x = Reshape((int(self.input_shape[0]/16), int(self.input_shape[1]/16), -1))(x)
+        x = UpSampling2D((2, 2), name='D_upsamp_0')(x)
+        x = Conv2DTranspose(16, 7, strides=1, activation='relu', padding="same", name='D_conv_1')(x)
+        #x = LeakyReLU(alpha=0.3)(x)
+        x = UpSampling2D((2, 2), name='D_upsamp_1')(x)
+        # x = Dropout(0.1)(x)
+        x = Conv2DTranspose(32, 5, strides=1, activation='relu', padding="same", name='D_conv_2')(x)
+        #x = LeakyReLU(alpha=0.3)(x)
+        x = UpSampling2D((2, 2), name='D_upsamp_2')(x)
+        # x = Dropout(0.1)(x)
+        x = Conv2DTranspose(48, 5, strides=1, activation='relu', padding="same", name='D_conv_3')(x)
+        #x = LeakyReLU(alpha=0.3)(x)
+        x = UpSampling2D((2, 2), name='D_upsamp_3')(x)
+        # x = Dropout(0.1)(x)
+        x = Conv2DTranspose(64, 13, strides=1, activation='relu', padding="same", name='D_conv_4')(x)
+        #x = LeakyReLU(alpha=0.3)(x)
+
+        decoded = Conv2D(1, (1, 1), activation='relu', padding="same", name='output', dtype=tf.float32)(x)
+        #decoded = LeakyReLU(alpha=0.3)(x)
+
+        autoencoder = Model(inputs=inputs, outputs=[decoded, encoded])
+        
+        print(autoencoder.summary())
+        autoencoder.compile(optimizer=optadam, loss=['mse', fn_smoothing], loss_weights=[0.95, 0.05])
+        
+        return autoencoder
+
+   
