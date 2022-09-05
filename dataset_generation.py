@@ -15,8 +15,8 @@ samplerate = 64000
 amplitude = 70
 noise_amplitude = 60
 duration = 500
-path = 'Clean_sounds_datasetv2_60'
-path_noise = 'Noise_sounds_datasetv2_60'
+path = 'Clean_sounds_datasetv2_60_28k'
+path_noise = 'Noise_sounds_datasetv2_60_28k'
 
 parser = argparse.ArgumentParser(description='Add noise or not')
 
@@ -36,11 +36,8 @@ if not os.path.exists(path_noise):
 
 np.random.seed(432754448)
 
-
-
-
 # Pure tone frequencies
-pts = np.random.randint(low=500, high=32000, size=3000, dtype=int)
+pts = np.random.randint(low=500, high=28000, size=3000, dtype=int)
 
 carryam_frequencies = np.random.randint(low=6000, high=16000, size=3000, dtype=int)
 am_frequencies = np.random.randint(low=10, high=200, size=3000, dtype=int)
@@ -57,7 +54,7 @@ funda_harm = np.random.randint(low=1000, high=10000, size=200)
 patt_harms= np.random.randint(low=0, high=2, size=(20, 5))
 patt_harms = np.arange(1, 6) * patt_harms
 harmonics = np.array([f*patt for f in funda_harm for patt in patt_harms])
-harmonics[harmonics > 32000] = 0
+harmonics[harmonics > 28000] = 0
 harmonics = [[i for i in h if i != 0] for h in harmonics]
 fs = [h for h in harmonics if len(h) > 0]
 
@@ -139,6 +136,7 @@ def gen_multi(function, args, noise=False):
 		dataset = [p.get() for p in track(results, description='Generating sounds ...')]
 
 if __name__ == '__main__':
+	# To get only a clean dataset, remove -n arg otherwise if -n it will give both datasets
 	if args.noise:
 		for i in range(7):
 			gen_multi(gen_pt, pts, noise=i)
@@ -148,7 +146,7 @@ if __name__ == '__main__':
 			gen_multi(gen_fmul, fs, noise=i)
 	else:
 		gen_multi(gen_pt, pts, noise=None)
-		# gen_multi(gen_am, ams, noise=None)
-		# gen_multi(gen_chirps, chirps, noise=None)
-		# gen_multi(gen_steps, steps, noise=None)
-		# gen_multi(gen_fmul, fs, noise=None)
+		gen_multi(gen_am, ams, noise=None)
+		gen_multi(gen_chirps, chirps, noise=None)
+		gen_multi(gen_steps, steps, noise=None)
+		gen_multi(gen_fmul, fs, noise=None)
