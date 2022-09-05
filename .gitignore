@@ -1,0 +1,7 @@
+.ipynb_checkpoints/*
+Data/*
+Latent/*
+ModelSave/*
+Output/*
+__pycache__/*
+to_convert/*
