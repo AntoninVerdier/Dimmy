@@ -1,0 +1,12 @@
+.ipynb_checkpoints/*
+Data/*
+Latent/*
+Latent_10_SophieNoise/*
+Latent_20_bigkernel/*
+Latent_blurred/*
+ModelSave/*
+Output/*
+SoundsHearlight/*
+__pycache__/*
+calib_pattern/*
+to_convert/*

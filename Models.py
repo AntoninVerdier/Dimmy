@@ -146,6 +146,8 @@ class Autoencoder():
             return self.__conv_simple(max_n=self.max_n)
         if self.model == 'conv_small':
             return self.__conv_small(max_n=self.max_n)
+        if self.model == 'tcn_ae':
+            return self.__tcn_ae()
     
 
     def __conv_simple(self, max_n=100):
@@ -358,4 +360,74 @@ class Autoencoder():
         
         return autoencoder
 
+
+    def __tcn_ae(self):
+
+        ts_dimension = 1
+        dilations = (4, 8, 16, 64, 96)
+        nb_filters = 20
+        kernel_size = 20
+        nb_stacks = 1
+        padding = 'same'
+        dropout_rate = 0.00
+        filters_conv1d = 32
+        activation_conv1d = 'linear'
+        latent_sample_rate = 8
+        pooler = AveragePooling1D
+        lr = 0.001
+        conv_kernel_init = 'glorot_normal'
+        loss = 'logcosh'
+        
+                        
+        tensorflow.keras.backend.clear_session()
+        sampling_factor = latent_sample_rate
+        i = Input(batch_shape=(None, 31920, ts_dimension))
+
+        # Put signal through TCN. Output-shape: (batch,sequence length, nb_filters)
+        tcn_enc = TCN(nb_filters=nb_filters, kernel_size=kernel_size, nb_stacks=nb_stacks, dilations=dilations, 
+                      padding=padding, use_skip_connections=True, dropout_rate=dropout_rate, return_sequences=True,
+                      kernel_initializer=conv_kernel_init, name='tcn-enc')(i)
+
+        # Now, adjust the number of channels...
+        enc_flat = Conv1D(filters=filters_conv1d, kernel_size=1, activation=activation_conv1d, padding=padding)(tcn_enc)
+
+        ## Do some average (max) pooling to get a compressed representation of the time series (e.g. a sequence of length 8)
+        enc_pooled = pooler(pool_size=sampling_factor, strides=None, padding='valid', data_format='channels_last')(enc_flat)
+        
+        # If you want, maybe put the pooled values through a non-linear Activation
+        enc_out = Activation("relu")(enc_pooled)
+
+
+
+        encoder = Model(inputs=[i], outputs=[enc_out])
+
+        # Now we should have a short sequence, which we will upsample again and then try to reconstruct the original series
+        j = Input(batch_shape=(None, None, filters_conv1d)) 
+        
+        dec_upsample = UpSampling1D(size=sampling_factor)(j)
+
+        dec_reconstructed = TCN(nb_filters=nb_filters, kernel_size=kernel_size, nb_stacks=nb_stacks, dilations=dilations, 
+                                padding=padding, use_skip_connections=True, dropout_rate=dropout_rate, return_sequences=True,
+                                kernel_initializer=conv_kernel_init, name='tcn-dec')(dec_upsample)
+
+        # Put the filter-outputs through a dense layer finally, to get the reconstructed signal
+        o = Dense(ts_dimension, activation='linear')(dec_reconstructed)
+
+        decoder = Model(inputs=[j], outputs=[o])
+        
+
+        code = encoder(i)
+        reconstruction = decoder(code)
+
+        autoencoder = Model(i, reconstruction)
+
+        adam = optimizers.Adam(learning_rate=lr, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0, amsgrad=True)
+        
+        autoencoder.compile(loss=loss, optimizer=adam, metrics=[loss])
+        
+        print(encoder.summary())
+        print(decoder.summary())
+        print(autoencoder.summary())
+        
+        return encoder, decoder, autoencoder 
    
