@@ -100,6 +100,11 @@ def load_unique_file_cqt(arg, y, mod=None, cropmid=True):
 	
 	return spec
 
+def inverse_cqt(a, y):
+	a = np.multiply(a/255, 1/y)
+	s = librosa.icqt(a, sr=64000, hop_length=256, fmin=500, bins_per_octave=22, filter_scale=1, res_type='fft')
+
+	return s
 def load_data_array_multi(file_list, filename='dataset', mod=None):
 	ids = [os.path.basename(f) for f in file_list]
 
