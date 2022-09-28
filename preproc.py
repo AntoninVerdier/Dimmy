@@ -86,7 +86,7 @@ def load_unique_file(arg, mod=None, cropmid=True):
 	#dataset[i, :, :] = np.array(((mag - np.min(mag))/np.max(mag))*255, dtype=np.uint8)
 	return spec
 
-def load_unique_file_cqt(arg, y, mod=None, cropmid=True):
+def load_unique_file_cqt(arg, y, reconstruct=False):
 	""" cropmid allwos to keep only 60% of the spectgram since NYQUIST frequency doesn't go akll the way 
 	"""
 	path = arg
@@ -95,13 +95,15 @@ def load_unique_file_cqt(arg, y, mod=None, cropmid=True):
 	C = np.abs(librosa.cqt(sample, sr=64000, hop_length=256, fmin=500, n_bins=128, bins_per_octave=22, filter_scale=1, res_type='fft'))
 	C = np.multiply(C, y)
 
-
+	scale = (np.min(C), np.max(C))
 	spec = np.array((C - np.min(C))/np.max(C)*255, dtype=np.uint8)
 	
-	return spec
+	if reconstruct:
+		return spec, scale
+	else:
+		return spec
 
-def inverse_cqt(a, y):
-	a = np.multiply(a/255, 1/y)
+def inverse_cqt(a):
 	s = librosa.icqt(a, sr=64000, hop_length=256, fmin=500, bins_per_octave=22, filter_scale=1, res_type='fft')
 
 	return s

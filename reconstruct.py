@@ -1,4 +1,5 @@
 import os
+from textwrap import dedent
 import numpy as np 
 import preproc as proc
 
@@ -27,9 +28,9 @@ def fn_smoothing(y_true, y_pred):
 
     return loss
 
-model = '/home/anverdie/Documents/Code/Dimmy/ModelSave/31082022_180020_full_tinynet_28k_all/Autoencoder_model_conv_small_full_tinynet_28k_all'
+model = '/home/pouple/PhD/Code/Dimmy/ModelSave/31082022_180020_full_tinynet_28k_all/Autoencoder_model_conv_small_full_tinynet_28k_all'
 
-sound = '/home/anverdie/Documents/Code/Dimmy/Data/SoundsHearlight/6kto16k_8step_70dB.wav'
+sound = '/home/pouple/PhD/Code/Dimmy/Data/SoundsHearlight/6kto16k_8step_70dB.wav'
 
 autoencoder = load_model(model, custom_objects={"fn_smoothing": fn_smoothing})
 
@@ -40,21 +41,22 @@ y = 1/(np.repeat(y, 126).reshape(128, 126))
 
 # Load soundfile and compute spectrogram
 
-test = proc.load_unique_file_cqt(sound, y)
+test, scale = proc.load_unique_file_cqt(sound, y, reconstruct=True)
 
-
-X_test = np.expand_dims(proc.load_unique_file_cqt(sound, y), 0)
-
-
-
-
-
+X_test = np.expand_dims(test, 0)
 X_test = X_test.astype('float32')/255.0
-X_test = X_test[:, :128, :112]
+X_test = X_test[:, :, :112]
 X_test = np.expand_dims(X_test, 3)
 
 decoded = autoencoder.predict(X_test)[0]
 decoded = decoded.reshape(128, 112)
-print(np.max(decoded))
-ttrue = proc.inverse_cqt(decoded, y[:, :112])
+decoded = np.pad(decoded, ((0, 0), (0, 14)), 'constant', constant_values=0)
+
+print(np.max(decoded), np.min(decoded))
+
+decoded = decoded * (scale[1] - scale[0]) + scale[0]
+decoded = np.multiply(decoded, 1/y)
+ttrue = proc.inverse_cqt(decoded)
+
+
 sio.wavfile.write('test_reprode.wav', 64000, ttrue)
