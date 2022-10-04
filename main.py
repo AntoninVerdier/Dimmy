@@ -5,18 +5,17 @@ import argparse
 import numpy as np
 import natsort as n
 import pickle as pkl
+import keras_tuner
 from sklearn import preprocessing as p
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 from tensorflow.keras.callbacks import TensorBoard
 from tensorflow.keras.models import load_model, Model
-from tensorflow.keras.layers import Dense, Conv2D, Flatten, Reshape, MaxPooling2D, UpSampling2D, Conv2DTranspose
 from sklearn.model_selection import train_test_split
 
 from tensorflow.keras.callbacks import Callback
 
 import visualkeras
-import matplotlib
 from PIL import ImageFont
 import matplotlib.pyplot as plt
 from rich import print, traceback
@@ -25,7 +24,7 @@ from rich.progress import track
 
 import settings as s
 import preproc as proc
-from Models import Autoencoder, DenseMax
+from Models import Autoencoder
 
 import tensorflow as tf
 
@@ -59,6 +58,8 @@ parser.add_argument('--quicktest', '-qt', type=str, default=None,
                     help='Placeholder for name and description')
 parser.add_argument('--epochs', '-e', type=int, default=150,
                     help='Number of epochs')
+parser.add_argument('--tuner', '-tu', action='store_true',
+                    help='Hyperparameters search')
 args = parser.parse_args()
 
 
@@ -88,8 +89,6 @@ if args.train:
       
       ]
 
-
-
     # Quick infos on the network for record
     if not args.quicktest:
       net_name = input('Name of the network > ')
@@ -108,6 +107,8 @@ if args.train:
     toeplitz_true = 'toeplitz_offset_cqt_128_28k.pkl'
     toeplitz_spec = 'topelitz_gaussian_cxe_28k.npy'
 
+    
+
     # Distinguish between noisy input and clean reconstruction target
     X_train = np.load(open(input_dataset_file, 'rb'), allow_pickle=True).astype('float32')/255.0
     X_train_c = np.load(open(output_dataset_file, 'rb'), allow_pickle=True).astype('float32')/255.0
@@ -121,6 +122,7 @@ if args.train:
     if args.network: 
 
       input_shape = (X_train.shape[1] - X_train.shape[1]%16, X_train.shape[2] - X_train.shape[2]%16)
+      print(input_shape)
       X_train = X_train[:, :input_shape[0], :input_shape[1]]
       X_train_c = X_train_c[:, :input_shape[0], :input_shape[1]]
 
@@ -180,11 +182,11 @@ if args.train:
           plt.close()
 
     history = autoencoder.fit(X_train, X_train_c,
-                              validation_data=(X_valid, X_valid_c),
-                              epochs=args.epochs, 
-                              use_multiprocessing=True,
-                              batch_size=args.batch_size if args.batch_size else 32,
-                              callbacks=[ToeplitzLogger(), tboard_callback])
+                            validation_data=(X_valid, X_valid_c),
+                            epochs=args.epochs, 
+                            use_multiprocessing=True,
+                            batch_size=args.batch_size if args.batch_size else 32,
+                            callbacks=[ToeplitzLogger(), tboard_callback])
 
 
 
@@ -217,6 +219,10 @@ if args.train:
     args_dict['best_loss'] = np.min(history.history['loss'])
     args_dict['end_loss'] = history.history['loss'][-1]
 
+    with open(os.path.join(save_model_path, 'summary.txt'), 'w') as f:
+      autoencoder.summary(print_fn=lambda x: f.write(x + '\n'))
+
+
     # Add training time
 
     with open(os.path.join(save_model_path, 'metadata.json'), 'w') as f:
@@ -232,7 +238,7 @@ if args.train:
       y = 0.5*np.exp(-0.022*x)
       y = 1/(np.repeat(y, 126).reshape(128, 126))
       # Load soundfile and compute spectrogram
-      X_test = np.expand_dims(proc.load_unique_file_cqt(os.path.join(sounds_to_encode, f), y, mod='log', cropmid=True), 0)
+      X_test = np.expand_dims(proc.load_unique_file_cqt(os.path.join(sounds_to_encode, f), y), 0)
       X_test = X_test.astype('float32')/255.0
       X_test = X_test[:, :input_shape[0], :input_shape[1]]
       X_test = np.expand_dims(X_test, 3)
@@ -331,7 +337,7 @@ if args.predict:
   for i, f in track(enumerate(n.natsorted(os.listdir(sounds_to_encode))), total=len(os.listdir(sounds_to_encode))):
     print(f)
     # Load soundfile and compute spectrogram
-    X_test = proc.load_unique_file(os.path.join(sounds_to_encode, f), mod='log', cropmid=True).reshape(1, 128, 126)
+    X_test = proc.load_unique_file(os.path.join(sounds_to_encode, f)).reshape(1, 128, 126)
     X_test = X_test.astype('float32')/255.0
 
     fig, axs = plt.subplots(1, 2)
