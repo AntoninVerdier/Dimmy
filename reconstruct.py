@@ -29,11 +29,10 @@ def fn_smoothing(y_true, y_pred):
 
     return loss
 
-model = '/home/anverdie/share/gaia/User_folders/Antonin/Models/Continous_models/31082022_180020_full_tinynet_28k_all/Autoencoder_model_conv_small_full_tinynet_28k_all'
+model = '/home/user/share/gaia/User_folders/Antonin/Models/Continous_models/31082022_180020_full_tinynet_28k_all/Autoencoder_model_conv_small_full_tinynet_28k_all'
+sound = '/home/user/share/gaia/User_folders/Antonin/Models/Continous_models/SoundsHearlight/6kto16k_8step_70dB.wav'
 
-sound = '/home/anverdie/share/gaia/User_folders/Antonin/Models/Continous_models/SoundsHearlight/6kto16k_8step_70dB.wav'
-
-one_encoding_test = np.diag(np.full(100, 1))
+one_encoding_test = np.diag(np.full(100, 0.5))
 
 
 autoencoder = load_model(model, custom_objects={"fn_smoothing": fn_smoothing})
@@ -50,9 +49,9 @@ for layer in autoencoder.layers[11:]:
 decoder = Model(layer_input, x)
 
 for i, s in enumerate(one_encoding_test):
-    out = decoder(s.reshape(1, 100))
+    out = decoder(s.reshape(1, 100))[0].numpy()
     plt.imshow(out.reshape(128, 112), cmap='inferno')
-    plt.savefig('Figures/one_led_{}.svg')
+    plt.savefig('Figures/half_led_{}.svg'.format(i))
     plt.close()
 
 
