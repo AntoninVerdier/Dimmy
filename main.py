@@ -62,9 +62,6 @@ parser.add_argument('--tuner', '-tu', action='store_true',
                     help='Hyperparameters search')
 args = parser.parse_args()
 
-
-
-
    
 # Execute training if inline argument is passed
 if args.train:
@@ -104,7 +101,7 @@ if args.train:
     # Datasets
     input_dataset_file = 'heardat_noise_datasetv2_60_cqt_128_28k.pkl'
     output_dataset_file = 'heardat_clean_datasetv2_60_cqt_128_28k.pkl'
-    toeplitz_true = 'toeplitz_offset_cqt_128_28k.pkl'
+    toeplitz_true = 'ordered_96_28k_toeplitz.npy'
     toeplitz_spec = 'topelitz_gaussian_cxe_28k.npy'
 
     
@@ -163,6 +160,7 @@ if args.train:
     class ToeplitzLogger(Callback):
       def __init__(self):
         self.test_freq = np.load(os.path.join('toeplitz', toeplitz_true), allow_pickle=True)[:, :input_shape[0], :input_shape[1]]
+        
 
       def on_epoch_end(self, epoch, logs=None):
           pred_freq_corr = autoencoder(self.test_freq)[1]
@@ -180,13 +178,35 @@ if args.train:
           plt.imshow(cor, vmin=0, vmax=1)
           plt.savefig(os.path.join(save_model_path, 'Callbacks', 'Img','log_top_{}.svg'.format(epoch)))
           plt.close()
+    
+    class ToeplitzLogger_am(Callback):
+      def __init__(self):
+        self.test_freq_am = np.load(os.path.join('toeplitz', 'toep_am_10k.npy'), allow_pickle=True)[:, :input_shape[0], :input_shape[1]]
+        
+
+      def on_epoch_end(self, epoch, logs=None):
+          pred_freq_corr = autoencoder(self.test_freq_am)[2]
+
+          def t(a): return tf.transpose(a)
+
+          x = pred_freq_corr
+          mean_t = tf.reduce_mean(x, axis=1, keepdims=True)
+          #cov_t = x @ t(x)
+          cov_t = ((x-mean_t) @ t(x-mean_t))/(pred_freq_corr.shape[1]-1)
+          cov2_t = tf.linalg.diag(1/tf.sqrt(tf.linalg.diag_part(cov_t)))
+          cor = cov2_t @ cov_t @ cov2_t
+
+          np.save(os.path.join(save_model_path, 'Callbacks', 'Dat', 'logam_top_{}.npy'.format(epoch)), cor)
+          plt.imshow(cor, vmin=0, vmax=1)
+          plt.savefig(os.path.join(save_model_path, 'Callbacks', 'Img','logam_top_{}.svg'.format(epoch)))
+          plt.close()
 
     history = autoencoder.fit(X_train, X_train_c,
                             validation_data=(X_valid, X_valid_c),
                             epochs=args.epochs, 
                             use_multiprocessing=True,
                             batch_size=args.batch_size if args.batch_size else 32,
-                            callbacks=[ToeplitzLogger(), tboard_callback])
+                            callbacks=[ToeplitzLogger(), ToeplitzLogger_am(), tboard_callback])
 
 
 
