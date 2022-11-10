@@ -124,7 +124,7 @@ if args.train:
       X_train_c = X_train_c[:, :input_shape[0], :input_shape[1]]
 
 
-    # Create a validation set
+    # Create a validation set486559206
     X_train, X_valid, X_train_c, X_valid_c = train_test_split(X_train, X_train_c, test_size=0.2, shuffle=True)
 
     # train_ds = tf.data.Dataset.from_tensor_slices((X_train, X_train_c)).batch(args.batch_size)
@@ -159,7 +159,7 @@ if args.train:
 
     class ToeplitzLogger(Callback):
       def __init__(self):
-        self.test_freq = np.load(os.path.join('toeplitz', toeplitz_true), allow_pickle=True)[:, :input_shape[0], :input_shape[1]]
+        self.test_freq = np.load(os.path.join('toeplitz', toeplitz_true), allow_pickle=True)[:, :input_shape[0], :input_shape[1]]/255.0#continuous was trained without
         
 
       def on_epoch_end(self, epoch, logs=None):
@@ -181,7 +181,44 @@ if args.train:
     
     class ToeplitzLogger_am(Callback):
       def __init__(self):
-        self.test_freq_am = np.load(os.path.join('toeplitz', 'toep_am_10k.npy'), allow_pickle=True)[:, :input_shape[0], :input_shape[1]]
+        self.test_freq_am = np.load(os.path.join('toeplitz', 'toep_am_10k.npy'), allow_pickle=True)[:, :input_shape[0], :input_shape[1]]/255.0#continuous was trained without
+        
+
+      def on_epoch_end(self, epoch, logs=None):
+          pred_freq_corr = autoencoder(self.test_freq_am)[2]
+
+          def t(a): return tf.transpose(a)
+
+          x = pred_freq_corr
+          mean_t = tf.reduce_mean(x, axis=1, keepdims=True)
+          #cov_t = x @ t(x)
+          cov_t = ((x-mean_t) @ t(x-mean_t))/(pred_freq_corr.shape[1]-1)
+          cov2_t = tf.linalg.diag(1/tf.sqrt(tf.linalg.diag_part(cov_t)))
+          cor = cov2_t @ cov_t @ cov2_t
+
+          np.save(os.path.join(save_model_path, 'Callbacks', 'Dat', 'logam_top_{}.npy'.format(epoch)), cor)
+          plt.imshow(cor, vmin=0, vmax=1)
+          plt.savefig(os.path.join(save_model_path, 'Callbacks', 'Img','logam_top_{}.svg'.format(epoch)))
+          plt.close()
+    
+    class CorrLogger(Callback):
+      def __init__(self):
+        self.sounds_to_encode = '/home/user/Documents/Antonin/Dimmy/Data/SoundsHearlight'
+        x = np.arange(1, 129)
+        y = 0.5*np.exp(-0.022*x)
+        y = 1/(np.repeat(y, 126).reshape(128, 126))
+        # Load soundfile and compute spectrogram
+        
+        xs = []
+        for i, f in track(enumerate(n.natsorted(os.listdir(self.sounds_to_encode))), total=len(os.listdir(self.sounds_to_encode))):
+          X_test = np.expand_dims(proc.load_unique_file_cqt(os.path.join(self.sounds_to_encode, f), y), 0)
+          
+          X_test = X_test.astype('float32')/255.0
+          X_test = X_test[:, :input_shape[0], :input_shape[1]]
+          X_test = np.expand_dims(X_test, 3)
+
+          xs.append(X_test)
+        
         
 
       def on_epoch_end(self, epoch, logs=None):
@@ -201,6 +238,7 @@ if args.train:
           plt.savefig(os.path.join(save_model_path, 'Callbacks', 'Img','logam_top_{}.svg'.format(epoch)))
           plt.close()
 
+    print(np.min(X_train), np.max(X_train))
     history = autoencoder.fit(X_train, X_train_c,
                             validation_data=(X_valid, X_valid_c),
                             epochs=args.epochs, 

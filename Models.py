@@ -140,10 +140,10 @@ class Autoencoder():
         self.toeplitz_true = toeplitz_true
 
         self.true_freq_corr = tf.convert_to_tensor(np.load(os.path.join('toeplitz', self.toeplitz_spec)))
-        self.true_freq_corr_am = tf.convert_to_tensor(np.load(os.path.join('toeplitz', 'topelitz_gaussian_am_10k.npy')))
+        self.true_freq_corr_am = tf.convert_to_tensor(np.load(os.path.join('toeplitz', 'topelitz_gaussian_am_10k_50.npy')))
 
-        self.test_freq = tf.convert_to_tensor(np.load(os.path.join('toeplitz', self.toeplitz_true), allow_pickle=True)[:, :input_shape[0], :input_shape[1]])
-        self.test_freq_am = tf.convert_to_tensor(np.load(os.path.join('toeplitz', 'toep_am_10k.npy'), allow_pickle=True)[:, :input_shape[0], :input_shape[1]])
+        self.test_freq = tf.convert_to_tensor(np.load(os.path.join('toeplitz', self.toeplitz_true), allow_pickle=True)[:, :input_shape[0], :input_shape[1]]/255.0)
+        self.test_freq_am = tf.convert_to_tensor(np.load(os.path.join('toeplitz', 'toep_am_10k.npy'), allow_pickle=True)[:, :input_shape[0], :input_shape[1]]/255.0)
 
     def get_model(self):
         if self.model == 'conv_simple':
@@ -540,15 +540,15 @@ class Autoencoder():
 
         inputs = Input((*self.input_shape, 1))
 
-        x = Conv2D(64, kernel_size=(17, 17), padding='same', activation='relu', name='E_conv_1')(inputs)
+        x = Conv2D(96, kernel_size=(7, 19), padding='same', activation='relu', name='E_conv_1')(inputs)
         x = MaxPooling2D((2, 2), padding="same", name='E_pool_1')(x)
-        x = Conv2D(32, kernel_size=7, padding='same', activation='relu', name='E_conv_2')(x)
+        x = Conv2D(48, kernel_size=7, padding='same', activation='relu', name='E_conv_2')(x)
         #x = Dropout(0.1)(x)
         x = MaxPooling2D((2, 2), padding="same", name='E_pool_2')(x)
-        x = Conv2D(16, kernel_size=5, padding='same', activation='relu', name='E_conv_3')(x)
+        x = Conv2D(16, kernel_size=7, padding='same', activation='relu', name='E_conv_3')(x)
         #x = Dropout(0.1)(x)
         x = MaxPooling2D((2, 2), padding="same", name='E_pool_3')(x)
-        x = Conv2D(8, kernel_size=7, padding='same', activation='relu', name='E_conv_4')(x)
+        x = Conv2D(8, kernel_size=5, padding='same', activation='relu', name='E_conv_4')(x)
         x = MaxPooling2D((2, 2), padding="same", name='E_pool_4')(x)
 
         x = Flatten()(x)
@@ -563,19 +563,19 @@ class Autoencoder():
         x = Dense(int(self.input_shape[0]/16)*int(self.input_shape[1]/16)*16)(encoded)
         x = Reshape((int(self.input_shape[0]/16), int(self.input_shape[1]/16), -1))(x)
         x = UpSampling2D((2, 2), name='D_upsamp_0')(x)
-        x = Conv2DTranspose(8, 7, strides=1, activation='relu', padding="same", name='D_conv_1')(x)
+        x = Conv2DTranspose(8, 5, strides=1, activation='relu', padding="same", name='D_conv_1')(x)
         #x = LeakyReLU(alpha=0.3)(x)
         x = UpSampling2D((2, 2), name='D_upsamp_1')(x)
         # x = Dropout(0.1)(x)
-        x = Conv2DTranspose(16, 5, strides=1, activation='relu', padding="same", name='D_conv_2')(x)
+        x = Conv2DTranspose(16, 7, strides=1, activation='relu', padding="same", name='D_conv_2')(x)
         #x = LeakyReLU(alpha=0.3)(x)
         x = UpSampling2D((2, 2), name='D_upsamp_2')(x)
         # x = Dropout(0.1)(x)
-        x = Conv2DTranspose(32, 7, strides=1, activation='relu', padding="same", name='D_conv_3')(x)
+        x = Conv2DTranspose(48, 7, strides=1, activation='relu', padding="same", name='D_conv_3')(x)
         #x = LeakyReLU(alpha=0.3)(x)
         x = UpSampling2D((2, 2), name='D_upsamp_3')(x)
         # x = Dropout(0.1)(x)
-        x = Conv2DTranspose(64, kernel_size=(17, 17), strides=1, activation='relu', padding="same", name='D_conv_4')(x)
+        x = Conv2DTranspose(96, kernel_size=(7, 19), strides=1, activation='relu', padding="same", name='D_conv_4')(x)
         #x = LeakyReLU(alpha=0.3)(x)
 
         decoded = Conv2D(1, (1, 1), activation='relu', padding="same", name='output', dtype=tf.float32)(x)
