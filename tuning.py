@@ -95,7 +95,6 @@ parser.add_argument('--tuner', '-tu', action='store_true',
 args = parser.parse_args()
 
 
-
 # Datasets
 input_dataset_file = 'heardat_noise_datasetv2_60_cqt_128_28k.pkl'
 output_dataset_file = 'heardat_clean_datasetv2_60_cqt_128_28k.pkl'
@@ -263,14 +262,14 @@ def conv_small_tune(X_train, y_train, X_val, y_val, params):
     
     return out, autoencoder
 
-p = {'conv_1_units': list(np.arange(32, 128, 32)),
-     'conv_2_units': list(np.arange(32, 96, 16)),
-     'conv_3_units': list(np.arange(16, 64, 16)),
-     'conv_4_units': list(np.arange(8, 16, 8)),
-     'kernel_1_size': list(np.arange(13, 21, 2)),
-     'kernel_2_size': list(np.arange(5, 15, 2)),
-     'kernel_3_size': list(np.arange(3, 9, 2)),
-     'kernel_4_size': list(np.arange(3, 7, 2)),
+p = {'conv_1_units': list(np.arange(64, 129, 32)),
+     'conv_2_units': list(np.arange(32, 97, 16)),
+     'conv_3_units': list(np.arange(16, 32, 16)),
+     'conv_4_units': list(np.arange(8, 17, 8)),
+     'kernel_1_size': list(np.arange(13, 22, 2)),
+     'kernel_2_size': list(np.arange(5, 17, 2)),
+     'kernel_3_size': list(np.arange(3, 10, 2)),
+     'kernel_4_size': list(np.arange(3, 8, 2)),
      'epochs':[args.epochs],
      'batch_size': [args.batch_size]}
 
@@ -280,13 +279,13 @@ scan_object = talos.Scan(x=X_train,
                          y_val=X_valid_c,
                          params=p,
                          model=conv_small_tune,
-                         experiment_name='test',
+                         experiment_name='Tuning_high_filters',
                          random_method='quantum',
                          reduction_method='correlation',
-                         reduction_interval=25,
-                         reduction_window=25,
-                         reduction_threshold=0.3,
-                         reduction_metric='mae',
+                         reduction_interval=10,
+                         reduction_window=10,
+                         reduction_threshold=0.4,
+                         reduction_metric='val_loss',
                          minimize_loss=True)
 
 np.save('scanning_results.npy', scan_object, allow_pickle=True)
