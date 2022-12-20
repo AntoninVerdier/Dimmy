@@ -1,44 +1,19 @@
 import os
-import time
-import tensorflow as tf
-import keras_tuner
-
-import tensorflow.keras
 import numpy as np
-
-from tcn import TCN
-
-import keras_tuner as kt
-from tensorflow.keras.models import Sequential, Model, load_model
-from tensorflow.keras.layers import Input, Dense, InputLayer, Flatten, Reshape, Layer, Conv2D, Conv2DTranspose, MaxPooling2D, UpSampling2D, DepthwiseConv2D, LeakyReLU
-from tensorflow.keras.layers import Activation, Dropout, Conv1D, UpSampling1D, MaxPooling1D, AveragePooling1D
-
-from tensorflow.keras import backend as K
-from tensorflow.keras import optimizers
-
-from tensorflow.keras.models import Model, load_model
-from tensorflow.keras.layers import Input, Dense, Layer, InputSpec
-from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
-from tensorflow.keras import regularizers, activations, initializers, constraints, Sequential
-from tensorflow.keras import backend as K
-from tensorflow.keras.constraints import UnitNorm, Constraint
-
+import tensorflow as tf
+import matplotlib.pyplot as plt
 import tensorflow.experimental.numpy as tnp
-import tensorflow_probability as tfp
-
-# from AE import Sampling
-# from AE import VAE
-
-from sklearn import preprocessing as p
-
 
 from tensorflow import keras
-from tensorflow.keras import layers
-
+from tensorflow.keras import backend as K
+from sklearn import preprocessing as p
+from tensorflow.keras import regularizers, activations, initializers, constraints
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Dense, Flatten, Reshape, Layer, Conv2D, Conv2DTranspose, MaxPooling2D, UpSampling2D, LeakyReLU, InputSpec
+from tensorflow.keras.layers import Activation, Dropout
 from tensorflow.python.ops.numpy_ops import np_config
-np_config.enable_numpy_behavior()
 
-import matplotlib.pyplot as plt
+np_config.enable_numpy_behavior()
 
 class DenseMax(Layer):
     """
